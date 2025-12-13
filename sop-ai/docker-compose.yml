@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sop-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Note: Models need to be pulled manually after container starts:
+    # docker exec sop-ai-ollama ollama pull mistral:7b
+    # docker exec sop-ai-ollama ollama pull nomic-embed-text
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: sop-ai-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  chroma_data:
+
