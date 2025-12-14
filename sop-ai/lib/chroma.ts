@@ -4,6 +4,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { db, indexedSOPs } from './db';
+import { eq } from 'drizzle-orm';
 
 const execAsync = promisify(exec);
 
@@ -451,6 +453,41 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
     });
 
     console.log(`Successfully indexed ${entries.length} SOP entries into ChromaDB`);
+
+    // Track indexed SOPs in database
+    // Group entries by source file (one entry per file, with total count)
+    const fileGroups = new Map<string, { categories: Set<string>; count: number }>();
+    
+    entries.forEach((entry) => {
+      const source = entry.sourceFile || 'Unknown';
+      const category = entry.category || 'General';
+      
+      if (!fileGroups.has(source)) {
+        fileGroups.set(source, { categories: new Set(), count: 0 });
+      }
+      const group = fileGroups.get(source)!;
+      group.categories.add(category);
+      group.count++;
+    });
+
+    // Clear existing indexed SOPs
+    await db.delete(indexedSOPs);
+
+    // Insert new indexed SOPs - one row per source file
+    for (const [sourceFile, data] of fileGroups.entries()) {
+      // Use the first category or join if multiple
+      const categories = Array.from(data.categories);
+      const primaryCategory = categories.length > 0 ? categories[0] : 'General';
+      
+      await db.insert(indexedSOPs).values({
+        sourceFile,
+        category: primaryCategory,
+        entryCount: data.count,
+        lastIndexed: new Date(),
+      });
+    }
+
+    console.log(`Tracked ${fileGroups.size} SOP sources in database`);
   } catch (error) {
     console.error('Error rebuilding index:', error);
     throw error;

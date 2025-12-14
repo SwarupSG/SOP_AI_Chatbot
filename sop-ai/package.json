@@ -9,10 +9,12 @@
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
     "parse-sop": "tsx scripts/parse-sop.ts",
-    "index": "tsx sop-index.ts"
+    "index": "tsx sop-index.ts",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",

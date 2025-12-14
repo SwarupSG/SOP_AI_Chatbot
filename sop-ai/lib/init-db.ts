@@ -35,6 +35,14 @@ export async function initDatabase() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS indexed_sops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_file TEXT NOT NULL,
+      category TEXT,
+      entry_count INTEGER NOT NULL DEFAULT 0,
+      last_indexed INTEGER NOT NULL
+    );
   `);
 
   console.log('Database tables initialized');

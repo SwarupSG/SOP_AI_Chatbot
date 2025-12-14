@@ -65,6 +65,7 @@ export function parseSOPExcel(filePath: string): SOPEntry[] {
       const entry: SOPEntry = {
         content: '',
         category: sheetName,
+        sourceFile: filePath,
       };
 
       const contentParts: string[] = [];
