@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Trash2 } from 'lucide-react';
 
 interface UnansweredQuestion {
   id: number;
@@ -32,6 +32,7 @@ export default function UnansweredTable() {
   const [notes, setNotes] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     loadQuestions();
@@ -66,6 +67,31 @@ export default function UnansweredTable() {
       }
     } catch (error) {
       console.error('Failed to update question:', error);
+    }
+  };
+
+  const handleDeleteQuestion = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/unanswered?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        loadQuestions();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to delete question: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete question:', error);
+      alert('Failed to delete question. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -172,28 +198,31 @@ export default function UnansweredTable() {
         {questions.length === 0 ? (
           <p className="text-muted-foreground">No unanswered questions</p>
         ) : (
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="min-w-[300px]">Question</TableHead>
+                <TableHead className="whitespace-nowrap">User</TableHead>
+                <TableHead className="whitespace-nowrap">Date</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
                 <TableHead>Notes</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {questions.map((q) => (
                 <TableRow key={q.id}>
-                  <TableCell className="max-w-md">{q.question}</TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-md min-w-[300px] break-words whitespace-normal align-top">
+                    <p className="text-sm break-words">{q.question}</p>
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
                     {q.userName || q.userEmail || 'Unknown'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
                     {new Date(q.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
                         q.status === 'answered'
@@ -204,7 +233,7 @@ export default function UnansweredTable() {
                       {q.status}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     {editingId === q.id ? (
                       <Input
                         value={notes}
@@ -213,12 +242,12 @@ export default function UnansweredTable() {
                         className="w-48"
                       />
                     ) : (
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground break-words">
                         {q.notes || '-'}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     {editingId === q.id ? (
                       <div className="flex gap-2">
                         <Button
@@ -239,21 +268,40 @@ export default function UnansweredTable() {
                         </Button>
                       </div>
                     ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setEditingId(q.id);
-                          setNotes(q.notes || '');
-                        }}
-                      >
-                        Mark Answered
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setEditingId(q.id);
+                            setNotes(q.notes || '');
+                          }}
+                        >
+                          Mark Answered
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteQuestion(q.id)}
+                          disabled={deletingId === q.id}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {deletingId === q.id ? (
+                            <>Deleting...</>
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
       </Card>
     </div>

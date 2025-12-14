@@ -39,3 +39,37 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = request.cookies.get('auth-token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    const user = verifyToken(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    // Delete all recent questions for this user
+    await db
+      .delete(recentQuestions)
+      .where(eq(recentQuestions.userId, user.id));
+
+    return NextResponse.json({ success: true, message: 'Chat history cleared' });
+  } catch (error) {
+    console.error('Clear recent questions error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+

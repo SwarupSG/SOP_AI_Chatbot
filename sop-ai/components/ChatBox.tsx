@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Loader2, Send, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Loader2, Send, Copy, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 import PredefinedQuestionsDropdown from './PredefinedQuestionsDropdown';
 
 interface Message {
@@ -43,6 +43,7 @@ export default function ChatBox() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [clearingHistory, setClearingHistory] = useState(false);
 
   useEffect(() => {
     loadRecentQuestions();
@@ -79,6 +80,34 @@ export default function ChatBox() {
       }
     } catch (error) {
       console.error('Failed to load recent questions:', error);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!confirm('Are you sure you want to clear your chat history? This action cannot be undone.')) {
+      return;
+    }
+
+    setClearingHistory(true);
+    try {
+      const res = await fetch('/api/recent', {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setRecentQuestions([]);
+        setMessages([]);
+        // Show success message
+        alert('Chat history cleared successfully.');
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to clear history: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to clear history:', error);
+      alert('Failed to clear history. Please try again.');
+    } finally {
+      setClearingHistory(false);
     }
   };
 
@@ -317,7 +346,28 @@ export default function ChatBox() {
             {/* Recent Questions */}
             {recentQuestions.length > 0 && (
               <div className="w-full max-w-2xl space-y-3 mt-8 px-2">
-                <p className="text-sm font-medium text-muted-foreground">Recent questions:</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">Recent questions:</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearHistory}
+                    disabled={clearingHistory}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    {clearingHistory ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Clearing...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Clear History
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   {recentQuestions.slice(0, 3).map((q) => (
                     <Card

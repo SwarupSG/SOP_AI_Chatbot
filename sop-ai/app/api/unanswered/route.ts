@@ -95,3 +95,55 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = request.cookies.get('auth-token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    const user = verifyToken(token);
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Question ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const questionId = parseInt(id, 10);
+    if (isNaN(questionId)) {
+      return NextResponse.json(
+        { error: 'Invalid question ID' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the question
+    await db
+      .delete(unansweredQuestions)
+      .where(eq(unansweredQuestions.id, questionId));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete unanswered question error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
