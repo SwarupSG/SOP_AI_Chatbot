@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 
 interface UnansweredQuestion {
   id: number;
@@ -30,6 +31,7 @@ export default function UnansweredTable() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
+  const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null);
 
   useEffect(() => {
     loadQuestions();
@@ -84,6 +86,38 @@ export default function UnansweredTable() {
     }
   };
 
+  const handleExport = async (format: 'csv' | 'xlsx') => {
+    setExporting(format);
+    try {
+      const res = await fetch(`/api/unanswered/export?format=${format}`);
+      
+      if (!res.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const contentDisposition = res.headers.get('Content-Disposition');
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') || `unanswered-questions.${format}`
+        : `unanswered-questions.${format}`;
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`Export failed. Please try again.`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -98,7 +132,43 @@ export default function UnansweredTable() {
       </div>
 
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Unanswered Questions</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Unanswered Questions</h2>
+          {questions.length > 0 && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('csv')}
+                disabled={exporting !== null}
+              >
+                {exporting === 'csv' ? (
+                  <>Loading...</>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download CSV
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('xlsx')}
+                disabled={exporting !== null}
+              >
+                {exporting === 'xlsx' ? (
+                  <>Loading...</>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Download Excel
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
         {questions.length === 0 ? (
           <p className="text-muted-foreground">No unanswered questions</p>
         ) : (

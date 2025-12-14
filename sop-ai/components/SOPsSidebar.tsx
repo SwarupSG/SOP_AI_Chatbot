@@ -31,6 +31,16 @@ export default function SOPsSidebar() {
 
   useEffect(() => {
     loadSOPs();
+    
+    // Listen for SOPs update event
+    const handleSOPsUpdate = () => {
+      loadSOPs();
+    };
+    
+    window.addEventListener('sops-updated', handleSOPsUpdate);
+    return () => {
+      window.removeEventListener('sops-updated', handleSOPsUpdate);
+    };
   }, []);
 
   const loadSOPs = async () => {

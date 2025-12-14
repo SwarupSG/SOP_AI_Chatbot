@@ -41,5 +41,13 @@ export const indexedSOPs = sqliteTable('indexed_sops', {
   lastIndexed: integer('last_indexed', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 
+export const predefinedQuestions = sqliteTable('predefined_questions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sourceFile: text('source_file').notNull(),
+  question: text('question').notNull(),
+  category: text('category'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
 export const db = drizzle(sqlite);
 

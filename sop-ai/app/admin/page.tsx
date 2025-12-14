@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import UnansweredTable from '@/components/UnansweredTable';
+import SOPUpload from '@/components/SOPUpload';
+import UploadedSOPsList from '@/components/UploadedSOPsList';
 import { Button } from '@/components/ui/button';
 
 export default function AdminPage() {
@@ -69,7 +71,9 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        <SOPUpload />
+        <UploadedSOPsList />
         <UnansweredTable />
       </div>
     </div>

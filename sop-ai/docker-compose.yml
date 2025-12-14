@@ -10,7 +10,7 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
     # Note: Models need to be pulled manually after container starts:
-    # docker exec sop-ai-ollama ollama pull mistral:7b
+    # docker exec sop-ai-ollama ollama pull qwen2.5:3b
     # docker exec sop-ai-ollama ollama pull nomic-embed-text
 
   chromadb:

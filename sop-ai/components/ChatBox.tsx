@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Send, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
+import PredefinedQuestionsDropdown from './PredefinedQuestionsDropdown';
 
 interface Message {
   id: string;
@@ -22,7 +23,7 @@ interface Question {
   createdAt: Date;
 }
 
-const SUGGESTED_QUESTIONS = [
+const DEFAULT_QUESTIONS = [
   "How do I process a client refund?",
   "What is the procedure for handling SIP orders?",
   "How do I update bank details?",
@@ -34,13 +35,31 @@ export default function ChatBox() {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [recentQuestions, setRecentQuestions] = useState<Question[]>([]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(DEFAULT_QUESTIONS);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [loadingAiSuggestions, setLoadingAiSuggestions] = useState(false);
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecentQuestions();
+    loadSuggestedQuestions();
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    // Listen for SOPs update event to refresh suggestions
+    const handleSOPsUpdate = () => {
+      loadSuggestedQuestions();
+    };
+    
+    window.addEventListener('sops-updated', handleSOPsUpdate);
+    return () => {
+      window.removeEventListener('sops-updated', handleSOPsUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -60,6 +79,67 @@ export default function ChatBox() {
       }
     } catch (error) {
       console.error('Failed to load recent questions:', error);
+    }
+  };
+
+  const loadSuggestedQuestions = async () => {
+    try {
+      setLoadingSuggestions(true);
+      const res = await fetch('/api/suggested-questions?type=sop');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.questions && data.questions.length > 0) {
+          setSuggestedQuestions(data.questions);
+        } else {
+          setSuggestedQuestions(DEFAULT_QUESTIONS);
+        }
+      } else {
+        setSuggestedQuestions(DEFAULT_QUESTIONS);
+      }
+    } catch (error) {
+      console.error('Failed to load suggested questions:', error);
+      setSuggestedQuestions(DEFAULT_QUESTIONS);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const loadAISuggestions = async () => {
+    // Check if already cached
+    const cached = localStorage.getItem('ai-suggestions-cache');
+    if (cached) {
+      try {
+        const { questions, timestamp } = JSON.parse(cached);
+        // Cache for 1 hour
+        if (Date.now() - timestamp < 3600000) {
+          setAiSuggestions(questions);
+          setShowAiSuggestions(true);
+          return;
+        }
+      } catch (e) {
+        // Invalid cache, continue to fetch
+      }
+    }
+
+    try {
+      setLoadingAiSuggestions(true);
+      const res = await fetch('/api/suggested-questions?type=ai');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.questions && data.questions.length > 0) {
+          setAiSuggestions(data.questions);
+          setShowAiSuggestions(true);
+          // Cache the results
+          localStorage.setItem('ai-suggestions-cache', JSON.stringify({
+            questions: data.questions,
+            timestamp: Date.now(),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load AI suggestions:', error);
+    } finally {
+      setLoadingAiSuggestions(false);
     }
   };
 
@@ -159,47 +239,93 @@ export default function ChatBox() {
       {/* Chat Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 mb-4 space-y-4">
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-6 py-12">
-            <div className="rounded-full bg-primary/10 p-6">
+          <div className="flex flex-col items-center justify-center min-h-full text-center space-y-6 py-8 px-2">
+            <div className="rounded-full bg-primary/10 p-6 flex-shrink-0">
               <Sparkles className="h-12 w-12 text-primary" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-2xl">
               <h2 className="text-xl font-semibold">Welcome to SOP Assistant</h2>
-              <p className="text-muted-foreground text-sm max-w-md">
+              <p className="text-muted-foreground text-sm">
                 I'm here to help you find answers from your company's Standard Operating Procedures. 
                 Try asking a question or select one of the suggestions below.
               </p>
             </div>
             
             {/* Suggested Questions */}
-            <div className="w-full max-w-2xl space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">Suggested questions:</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {SUGGESTED_QUESTIONS.map((q, idx) => (
+            <div className="w-full max-w-2xl space-y-3 px-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-muted-foreground flex-shrink-0">
+                  {showAiSuggestions ? 'AI-Generated Suggestions' : 'Suggested questions:'}
+                </p>
+                {!showAiSuggestions && (
                   <Button
-                    key={idx}
-                    variant="outline"
-                    className="justify-start text-left h-auto py-3 px-4 hover:bg-accent hover:border-primary/50 transition-colors"
-                    onClick={() => handleSuggestedQuestion(q)}
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadAISuggestions}
+                    disabled={loadingAiSuggestions}
+                    className="text-xs flex-shrink-0"
                   >
-                    <span className="text-sm">{q}</span>
+                    {loadingAiSuggestions ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Get AI Suggestions
+                      </>
+                    )}
                   </Button>
-                ))}
+                )}
+                {showAiSuggestions && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAiSuggestions(false)}
+                    className="text-xs flex-shrink-0"
+                  >
+                    Show SOP-based
+                  </Button>
+                )}
               </div>
+              {loadingSuggestions && !showAiSuggestions ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="h-12 bg-muted animate-pulse rounded-lg"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {(showAiSuggestions ? aiSuggestions : suggestedQuestions).map((q, idx) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      className="justify-start text-left h-auto min-h-[3rem] py-3 px-4 hover:bg-accent hover:border-primary/50 transition-colors break-words whitespace-normal"
+                      onClick={() => handleSuggestedQuestion(q)}
+                    >
+                      <span className="text-sm break-words whitespace-normal text-left w-full">{q}</span>
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Recent Questions */}
             {recentQuestions.length > 0 && (
-              <div className="w-full max-w-2xl space-y-3 mt-8">
+              <div className="w-full max-w-2xl space-y-3 mt-8 px-2">
                 <p className="text-sm font-medium text-muted-foreground">Recent questions:</p>
                 <div className="space-y-2">
                   {recentQuestions.slice(0, 3).map((q) => (
                     <Card
                       key={q.id}
-                      className="p-3 hover:bg-accent cursor-pointer transition-colors"
+                      className="p-3 hover:bg-accent cursor-pointer transition-colors break-words"
                       onClick={() => handleRecentQuestion(q)}
                     >
-                      <p className="text-sm font-medium">{q.question}</p>
+                      <p className="text-sm font-medium break-words">{q.question}</p>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{q.answer}</p>
                     </Card>
                   ))}
@@ -289,6 +415,9 @@ export default function ChatBox() {
 
       {/* Input Area */}
       <div className="border-t bg-background px-4 py-4">
+        <div className="mb-2">
+          <PredefinedQuestionsDropdown onSelectQuestion={handleSuggestedQuestion} />
+        </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
             ref={inputRef}

@@ -37,12 +37,12 @@ You should see both containers running.
 
 ## Step 2: Pull Required Ollama Models
 
-Ollama needs two models: `mistral:7b` (for LLM) and `nomic-embed-text` (for embeddings).
+Ollama needs two models: `qwen2.5:3b` (for LLM) and `nomic-embed-text` (for embeddings).
 
 **Action:**
 ```bash
 # Pull the LLM model (this may take several minutes - ~4GB download)
-docker exec sop-ai-ollama ollama pull mistral:7b
+docker exec sop-ai-ollama ollama pull qwen2.5:3b
 
 # Pull the embedding model (this is smaller)
 docker exec sop-ai-ollama ollama pull nomic-embed-text
@@ -57,7 +57,7 @@ docker exec sop-ai-ollama ollama pull nomic-embed-text
 ```bash
 docker exec sop-ai-ollama ollama list
 ```
-You should see both `mistral:7b` and `nomic-embed-text` in the list.
+You should see both `qwen2.5:3b` and `nomic-embed-text` in the list.
 
 ---
 
@@ -401,7 +401,7 @@ curl http://localhost:3000/api/recent -b cookies.txt
 ### Issue: Ollama models not found
 **Solution:**
 - Verify models are pulled: `docker exec sop-ai-ollama ollama list`
-- Re-pull if missing: `docker exec sop-ai-ollama ollama pull mistral:7b`
+- Re-pull if missing: `docker exec sop-ai-ollama ollama pull qwen2.5:3b`
 
 ### Issue: ChromaDB connection error
 **Solution:**
@@ -425,7 +425,7 @@ curl http://localhost:3000/api/recent -b cookies.txt
 ## Success Criteria Checklist
 
 - [ ] Docker services running (Ollama + ChromaDB)
-- [ ] Ollama models downloaded (mistral:7b, nomic-embed-text)
+- [ ] Ollama models downloaded (qwen2.5:3b, nomic-embed-text)
 - [ ] Database seeded with users
 - [ ] SOP documents indexed successfully
 - [ ] Development server running on localhost:3000

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sop-ai-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - CHROMA_URL=http://chromadb:8000
+      - OLLAMA_URL=http://ollama:11434
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    volumes:
+      - ./sop-ai.db:/app/sop-ai.db  # SQLite database
+      - ./S4_-_SOPs_-_MF_Transactions.xlsx:/app/S4_-_SOPs_-_MF_Transactions.xlsx:ro
+      - ./template_sample:/app/template_sample:ro
+    depends_on:
+      - ollama
+      - chromadb
+    restart: unless-stopped
+    networks:
+      - sop-ai-network
+
+  # Ollama LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sop-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - sop-ai-network
+    # Resource limits (adjust based on your server)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: sop-ai-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    networks:
+      - sop-ai-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+volumes:
+  ollama_data:
+  chroma_data:
+
+networks:
+  sop-ai-network:
+    driver: bridge

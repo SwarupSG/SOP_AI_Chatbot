@@ -13,6 +13,10 @@ const CHROMA_URL = process.env.CHROMA_URL || 'http://localhost:8000';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const COLLECTION_NAME = 'sop-documents';
 
+// Confidence calculation weights (adjustable via environment variables)
+const RETRIEVAL_WEIGHT = parseFloat(process.env.RETRIEVAL_WEIGHT || '0.6'); // 60% by default
+const LLM_WEIGHT = parseFloat(process.env.LLM_WEIGHT || '0.4'); // 40% by default
+
 // Debug: Print configuration on module load
 console.log(`[CONFIG] OLLAMA_URL: ${OLLAMA_URL}`);
 console.log(`[CONFIG] CHROMA_URL: ${CHROMA_URL}`);
@@ -22,6 +26,8 @@ let chromaClient: ChromaClient | null = null;
 
 function getChromaClient(): ChromaClient {
   if (!chromaClient) {
+    // Create ChromaDB client without any default embedding function
+    // We use Ollama embeddings explicitly
     chromaClient = new ChromaClient({ path: CHROMA_URL });
   }
   return chromaClient;
@@ -160,7 +166,11 @@ async function getEmbedding(text: string): Promise<number[]> {
   return getEmbeddingViaCLI(text);
 }
 
-async function getLLMResponse(prompt: string): Promise<string> {
+export async function getLLMResponse(prompt: string): Promise<string> {
+  return (await getLLMResponseWithConfidence(prompt)).response;
+}
+
+export async function getLLMResponseWithConfidence(prompt: string): Promise<{ response: string; confidence?: number }> {
   try {
     console.log(`[DEBUG] Calling LLM with prompt length: ${prompt.length}`);
     
@@ -168,9 +178,14 @@ async function getLLMResponse(prompt: string): Promise<string> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'mistral:7b',
+        model: 'qwen2.5:3b',
         prompt,
         stream: false,
+        options: {
+          // Request token probabilities if supported
+          top_p: 0.9,
+          temperature: 0.7,
+        },
       }),
     });
 
@@ -182,18 +197,132 @@ async function getLLMResponse(prompt: string): Promise<string> {
       
       // Fallback to curl method
       console.log(`[DEBUG] Trying curl fallback for LLM...`);
-      return await getLLMResponseViaCurl(prompt);
+      const fallbackResponse = await getLLMResponseViaCurl(prompt);
+      return { response: fallbackResponse };
     }
 
     const data = await response.json();
     console.log(`[DEBUG] LLM response received, length: ${data.response?.length || 0}`);
-    return data.response || '';
+    
+    // Try to extract confidence from response if available
+    // Ollama might not return probabilities, so we'll use self-assessment
+    return {
+      response: data.response || '',
+      // Confidence will be calculated separately via self-assessment
+    };
   } catch (error: any) {
     console.error('[ERROR] getLLMResponse failed:', error.message);
     // Try curl fallback
     console.log(`[DEBUG] Trying curl fallback for LLM after error...`);
-    return await getLLMResponseViaCurl(prompt);
+    const fallbackResponse = await getLLMResponseViaCurl(prompt);
+    return { response: fallbackResponse };
   }
+}
+
+/**
+ * Calculate LLM confidence using self-assessment
+ * Asks the LLM to rate its own confidence in the answer
+ */
+async function calculateLLMConfidence(question: string, answer: string, context: string): Promise<number> {
+  try {
+    const assessmentPrompt = `You are evaluating the confidence level of an AI assistant's answer.
+
+Question: ${question}
+
+Context provided to the assistant:
+${context.substring(0, 500)}...
+
+Answer provided: ${answer}
+
+On a scale of 0.0 to 1.0, how confident should the assistant be in this answer?
+Consider:
+- How well the answer addresses the question
+- How well the context supports the answer
+- Whether the answer is complete and accurate
+- Whether there are any uncertainties or gaps
+
+Respond with ONLY a number between 0.0 and 1.0 (e.g., 0.85 for 85% confidence).`;
+
+    const assessmentResponse = await getLLMResponse(assessmentPrompt);
+    
+    // Extract number from response
+    const match = assessmentResponse.match(/(\d+\.?\d*)/);
+    if (match) {
+      const confidence = parseFloat(match[1]);
+      // Normalize to 0-1 range (in case LLM returns 0-100)
+      const normalized = confidence > 1 ? confidence / 100 : confidence;
+      return Math.max(0, Math.min(1, normalized));
+    }
+    
+    // Fallback: analyze answer for uncertainty indicators
+    return analyzeAnswerConfidence(answer);
+  } catch (error) {
+    console.error('Error calculating LLM confidence:', error);
+    // Fallback to heuristic analysis
+    return analyzeAnswerConfidence(answer);
+  }
+}
+
+/**
+ * Heuristic-based confidence analysis
+ * Looks for uncertainty indicators in the answer
+ */
+function analyzeAnswerConfidence(answer: string): number {
+  const lowerAnswer = answer.toLowerCase();
+  
+  // High confidence indicators
+  const highConfidencePhrases = [
+    'according to',
+    'based on',
+    'the procedure is',
+    'the steps are',
+    'you should',
+    'you must',
+    'you need to',
+  ];
+  
+  // Low confidence indicators
+  const lowConfidencePhrases = [
+    'i\'m not sure',
+    'i don\'t know',
+    'unclear',
+    'uncertain',
+    'may not',
+    'might not',
+    'possibly',
+    'perhaps',
+    'i cannot',
+    'unable to',
+    'doesn\'t contain enough information',
+    'no relevant',
+    'not found',
+  ];
+  
+  // Count indicators
+  const highCount = highConfidencePhrases.filter(phrase => lowerAnswer.includes(phrase)).length;
+  const lowCount = lowConfidencePhrases.filter(phrase => lowerAnswer.includes(phrase)).length;
+  
+  // Base confidence
+  let confidence = 0.7; // Default moderate confidence
+  
+  // Adjust based on indicators
+  if (highCount > 0 && lowCount === 0) {
+    confidence = 0.85; // High confidence
+  } else if (lowCount > 0) {
+    confidence = Math.max(0.2, 0.7 - (lowCount * 0.15)); // Reduce confidence
+  }
+  
+  // Check answer length (very short answers might be less confident)
+  if (answer.length < 50) {
+    confidence *= 0.9;
+  }
+  
+  // Check if answer explicitly states uncertainty
+  if (lowerAnswer.includes('if the context doesn\'t contain enough information')) {
+    confidence = 0.3;
+  }
+  
+  return Math.max(0, Math.min(1, confidence));
 }
 
 async function getLLMResponseViaCurl(prompt: string): Promise<string> {
@@ -201,7 +330,7 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
   
   try {
     const payload = JSON.stringify({
-      model: 'mistral:7b',
+      model: 'qwen2.5:3b',
       prompt,
       stream: false,
     });
@@ -255,14 +384,16 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       };
     }
 
+    // Get collection (must have been created without embedding function)
     const collection = await client.getCollection({ name: COLLECTION_NAME });
 
-    // Generate embedding for the question
+    // Generate embedding for the question using Ollama (nomic-embed-text)
     const queryEmbedding = await getEmbedding(question);
 
-    // Query ChromaDB for similar documents
+    // Query ChromaDB for similar documents using explicit query embeddings
+    // We provide embeddings manually, so ChromaDB won't try to use any default embedding function
     const results = await collection.query({
-      queryEmbeddings: [queryEmbedding],
+      queryEmbeddings: [queryEmbedding], // Explicit embedding from Ollama
       nResults: 5, // Get top 5 most relevant SOPs
     });
 
@@ -305,7 +436,15 @@ Question: ${question}
 
 Provide a clear, concise answer based on the SOP context above. If the context doesn't contain enough information, say so.`;
 
-    const answer = await getLLMResponse(prompt);
+    const llmResult = await getLLMResponseWithConfidence(prompt);
+    const answer = llmResult.response;
+
+    // Calculate LLM confidence (self-assessment + heuristics)
+    const llmConfidence = await calculateLLMConfidence(question, answer, context);
+
+    // Combine retrieval confidence with LLM confidence
+    // Weights are configurable via environment variables (default: 60% retrieval, 40% LLM)
+    const combinedConfidence = (confidence * RETRIEVAL_WEIGHT) + (llmConfidence * LLM_WEIGHT);
 
     // Extract sources (titles from metadata)
     const sources = metadatas
@@ -313,9 +452,11 @@ Provide a clear, concise answer based on the SOP context above. If the context d
       .filter((t: string) => t)
       .slice(0, 3); // Limit to top 3 sources
 
+    console.log(`[DEBUG] Confidence breakdown - Retrieval: ${(confidence * 100).toFixed(1)}%, LLM: ${(llmConfidence * 100).toFixed(1)}%, Combined: ${(combinedConfidence * 100).toFixed(1)}%`);
+
     return {
       answer,
-      confidence,
+      confidence: combinedConfidence,
       sources,
     };
   } catch (error) {
@@ -354,11 +495,16 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       // Collection might not exist, that's okay
     }
 
-    // Create new collection
+    // Create new collection WITHOUT any embedding function
+    // We provide embeddings explicitly via Ollama, so no embedding function is needed
     const collection = await client.createCollection({
       name: COLLECTION_NAME,
       metadata: { description: 'SOP documents for RAG' },
     });
+    
+    // Verify collection was created without embedding function
+    // All embeddings will be provided manually via Ollama
+    console.log('Created new ChromaDB collection (no embedding function - using manual embeddings)');
 
     console.log('Created new ChromaDB collection');
 
@@ -387,6 +533,14 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       console.log(`Processing Word documents from: ${templateSamplePath}`);
       const dirEntries = await parseSOPDirectory(templateSamplePath);
       allEntries.push(...dirEntries);
+    }
+
+    // Process uploaded files from uploads directory
+    const uploadsPath = path.join(process.cwd(), 'uploads');
+    if (fs.existsSync(uploadsPath)) {
+      console.log(`Processing uploaded files from: ${uploadsPath}`);
+      const uploadEntries = await parseSOPDirectory(uploadsPath);
+      allEntries.push(...uploadEntries);
     }
 
     const entries = allEntries;
@@ -444,10 +598,11 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       console.log(`[DEBUG] Batch ${batchNum} processed, moving to next batch`);
     }
 
-    // Add all documents to ChromaDB
+    // Add all documents to ChromaDB with explicit embeddings from Ollama
+    // We provide embeddings manually, so ChromaDB won't try to use any default embedding function
     await collection.add({
       ids: allIds,
-      embeddings: allEmbeddings,
+      embeddings: allEmbeddings, // Explicit embeddings from Ollama (nomic-embed-text)
       documents: allDocuments,
       metadatas: allMetadatas,
     });
@@ -488,6 +643,40 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
     }
 
     console.log(`Tracked ${fileGroups.size} SOP sources in database`);
+
+    // Generate predefined questions for each source file
+    console.log('Generating predefined questions for documents...');
+    const { generatePredefinedQuestions, storePredefinedQuestions } = await import('./question-generator');
+    
+    // Group entries by source file for question generation
+    const entriesByFile = new Map<string, any[]>();
+    entries.forEach((entry) => {
+      const source = entry.sourceFile || 'Unknown';
+      if (!entriesByFile.has(source)) {
+        entriesByFile.set(source, []);
+      }
+      entriesByFile.get(source)!.push(entry);
+    });
+
+    // Generate questions for each file
+    for (const [sourceFile, fileEntries] of entriesByFile.entries()) {
+      try {
+        const fileGroup = fileGroups.get(sourceFile);
+        const category = fileGroup?.categories.values().next().value || undefined;
+        
+        console.log(`Generating questions for: ${sourceFile}`);
+        const questions = await generatePredefinedQuestions(sourceFile, fileEntries, category);
+        
+        if (questions.length > 0) {
+          await storePredefinedQuestions(sourceFile, questions, category);
+        }
+      } catch (error) {
+        console.error(`Error generating questions for ${sourceFile}:`, error);
+        // Continue with other files even if one fails
+      }
+    }
+
+    console.log('Predefined questions generation complete');
   } catch (error) {
     console.error('Error rebuilding index:', error);
     throw error;

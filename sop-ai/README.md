@@ -8,7 +8,7 @@ A fully local SOP-only AI assistant web app for a 6-person company. This app pro
 - **Chat Interface**: Ask questions about SOPs and get instant answers using RAG (Retrieval Augmented Generation)
 - **Admin Dashboard**: Review unanswered questions and manage the SOP index
 - **Local-Only**: Runs entirely on a single machine, no external services required
-- **RAG System**: Uses Ollama (mistral:7b + nomic-embed-text) + ChromaDB for intelligent SOP queries
+- **RAG System**: Uses Ollama (qwen2.5:3b + nomic-embed-text) + ChromaDB for intelligent SOP queries
 
 ## Tech Stack
 
@@ -16,7 +16,7 @@ A fully local SOP-only AI assistant web app for a 6-person company. This app pro
 - **Frontend**: React + Tailwind CSS + shadcn/ui
 - **Database**: SQLite (via drizzle-orm)
 - **Vector DB**: ChromaDB (local process via Docker)
-- **LLM**: Ollama (mistral:7b + nomic-embed-text)
+- **LLM**: Ollama (qwen2.5:3b + nomic-embed-text)
 - **SOP Sources**: Excel files (`.xlsx`, `.xls`) and Word documents (`.docx`, `.doc`)
 
 ## Setup Instructions
@@ -45,7 +45,7 @@ A fully local SOP-only AI assistant web app for a 6-person company. This app pro
 
 4. **Pull Ollama models** (after Ollama container is running):
    ```bash
-   docker exec sop-ai-ollama ollama pull mistral:7b
+   docker exec sop-ai-ollama ollama pull qwen2.5:3b
    docker exec sop-ai-ollama ollama pull nomic-embed-text
    ```
 
@@ -132,7 +132,7 @@ sop-ai/
 4. **Query Processing**: When a user asks a question:
    - Question is embedded using the same model
    - Similar SOP entries are retrieved from ChromaDB
-   - Context is passed to `mistral:7b` LLM for answer generation
+   - Context is passed to `qwen2.5:3b` LLM for answer generation
    - Answer is returned with confidence score and sources
 
 ## Environment Variables

@@ -43,6 +43,14 @@ export async function initDatabase() {
       entry_count INTEGER NOT NULL DEFAULT 0,
       last_indexed INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS predefined_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_file TEXT NOT NULL,
+      question TEXT NOT NULL,
+      category TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   console.log('Database tables initialized');
