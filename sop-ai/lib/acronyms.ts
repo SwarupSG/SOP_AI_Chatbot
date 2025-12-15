@@ -50,7 +50,9 @@ export function loadAcronyms(): Acronym[] {
 
   try {
     console.log('[ACRONYMS] Reading CSV from:', csvPath);
-    const workbook = XLSX.readFile(csvPath);
+    // Read file as buffer first (works in Next.js API routes)
+    const fileBuffer = fs.readFileSync(csvPath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     

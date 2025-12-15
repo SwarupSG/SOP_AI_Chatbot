@@ -19,7 +19,9 @@ export function parseSOPExcel(filePath: string): SOPEntry[] {
     throw new Error(`File not found: ${filePath}`);
   }
 
-  const workbook = XLSX.readFile(filePath);
+  // Read file as buffer first (works in Next.js API routes)
+  const fileBuffer = fs.readFileSync(filePath);
+  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
   const entries: SOPEntry[] = [];
 
   // Process each sheet
@@ -134,11 +136,13 @@ export async function parseSOPWord(filePath: string): Promise<SOPEntry[]> {
 
   try {
     // Extract text from Word document
-    const result = await mammoth.extractRawText({ path: filePath });
+    // Read file as buffer first (works in Next.js API routes)
+    const fileBuffer = fs.readFileSync(filePath);
+    const result = await mammoth.extractRawText({ buffer: fileBuffer });
     const text = result.value;
     
     // Extract HTML for better structure (optional, can use for more advanced parsing)
-    const htmlResult = await mammoth.convertToHtml({ path: filePath });
+    const htmlResult = await mammoth.convertToHtml({ buffer: fileBuffer });
     
     const entries: SOPEntry[] = [];
     const fileName = path.basename(filePath, path.extname(filePath));
@@ -207,7 +211,9 @@ export function previewSOPStructure(filePath: string): void {
   const ext = path.extname(filePath).toLowerCase();
   
   if (ext === '.xlsx' || ext === '.xls') {
-    const workbook = XLSX.readFile(filePath);
+    // Read file as buffer first (works in Next.js API routes)
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     console.log(`Sheets: ${workbook.SheetNames.join(', ')}\n`);
 
     workbook.SheetNames.forEach((sheetName) => {

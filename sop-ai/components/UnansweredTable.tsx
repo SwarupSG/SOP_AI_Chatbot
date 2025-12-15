@@ -30,7 +30,6 @@ export default function UnansweredTable() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
-  const [rebuilding, setRebuilding] = useState(false);
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -95,23 +94,6 @@ export default function UnansweredTable() {
     }
   };
 
-  const handleRebuildIndex = async () => {
-    setRebuilding(true);
-    try {
-      const res = await fetch('/api/rebuild-index', {
-        method: 'POST',
-      });
-
-      if (res.ok) {
-        alert('Index rebuild initiated (placeholder)');
-      }
-    } catch (error) {
-      console.error('Failed to rebuild index:', error);
-    } finally {
-      setRebuilding(false);
-    }
-  };
-
   const handleExport = async (format: 'csv' | 'xlsx') => {
     setExporting(format);
     try {
@@ -150,12 +132,6 @@ export default function UnansweredTable() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button onClick={handleRebuildIndex} disabled={rebuilding}>
-          {rebuilding ? 'Rebuilding...' : 'Rebuild SOP Index'}
-        </Button>
-      </div>
 
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
