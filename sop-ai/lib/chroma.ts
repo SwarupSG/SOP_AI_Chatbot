@@ -24,7 +24,7 @@ function findSOPExcelFile(): string | null {
     path.join(process.cwd(), filename),
     path.join(process.cwd(), '..', filename),
   ];
-  
+
   for (const loc of locations) {
     try {
       if (fs.existsSync(loc)) {
@@ -46,7 +46,7 @@ function findTemplateDir(): string | null {
     path.join(process.cwd(), 'template_sample'),
     path.join(process.cwd(), '..', 'template_sample'),
   ];
-  
+
   for (const loc of locations) {
     try {
       if (fs.existsSync(loc) && fs.statSync(loc).isDirectory()) {
@@ -76,22 +76,22 @@ export function getChromaClient(): ChromaClient {
 
 async function getEmbeddingViaCLI(text: string): Promise<number[]> {
   const tmpFile = path.join(os.tmpdir(), `ollama-embed-${Date.now()}.json`);
-  
+
   try {
     console.log(`[DEBUG] Using temp file method for embedding (text length: ${text.length})`);
-    
+
     // Write payload to temp file (avoids all shell escaping issues)
     const payload = JSON.stringify({
       model: 'nomic-embed-text:latest',
       prompt: text,
     });
-    
+
     fs.writeFileSync(tmpFile, payload);
-    
+
     const command = `curl -s http://localhost:11434/api/embeddings -d @${tmpFile}`;
-    
+
     console.log(`[DEBUG] curl command: curl -s http://localhost:11434/api/embeddings -d @${tmpFile}`);
-    
+
     const { stdout, stderr } = await execAsync(command, {
       maxBuffer: 10 * 1024 * 1024,
       timeout: 60000,
@@ -107,16 +107,16 @@ async function getEmbeddingViaCLI(text: string): Promise<number[]> {
     }
 
     const result = JSON.parse(trimmed);
-    
+
     if (result.error) {
       throw new Error(`Ollama API error: ${result.error}`);
     }
-    
+
     if (result.embedding && Array.isArray(result.embedding)) {
       console.log(`[DEBUG] Got embedding via temp file, length: ${result.embedding.length}`);
       return result.embedding;
     }
-    
+
     throw new Error('No embedding in response');
   } catch (error: any) {
     console.error(`[ERROR] Temp file embedding failed: ${error.message}`);
@@ -138,10 +138,10 @@ export async function getEmbedding(text: string): Promise<number[]> {
   console.log(`[DEBUG] FULL URL: ${OLLAMA_URL}/api/embeddings`);
   console.log(`[DEBUG] Env check - process.env.OLLAMA_URL: ${process.env.OLLAMA_URL || 'not set'}`);
   console.log(`[DEBUG] OLLAMA_URL constant: ${OLLAMA_URL}`);
-  
+
   // Try API with both model name variations
   const modelNames = ['nomic-embed-text:latest', 'nomic-embed-text'];
-  
+
   for (const modelName of modelNames) {
     try {
       const url = `${OLLAMA_URL}/api/embeddings`;
@@ -149,18 +149,18 @@ export async function getEmbedding(text: string): Promise<number[]> {
         model: modelName,
         prompt: text,
       };
-      
+
       console.log(`[DEBUG] Attempting API call:`);
       console.log(`[DEBUG]   URL: ${url}`);
       console.log(`[DEBUG]   Model: ${modelName}`);
       console.log(`[DEBUG]   Text length: ${text.length}`);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         console.log(`[DEBUG] Fetch timeout triggered for model: ${modelName}`);
         controller.abort();
       }, 30000); // 30 second timeout
-      
+
       console.log(`[DEBUG] Sending fetch request...`);
       const response = await fetch(url, {
         method: 'POST',
@@ -210,12 +210,12 @@ export async function getEmbedding(text: string): Promise<number[]> {
 export async function getLLMResponse(prompt: string): Promise<string> {
   try {
     console.log(`[DEBUG] Calling LLM with prompt length: ${prompt.length}`);
-    
+
     const response = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'mistral:7b',
+        model: process.env.LLM_MODEL || 'qwen2.5:3b',
         prompt,
         stream: false,
         options: LLM_OPTIONS,
@@ -227,7 +227,7 @@ export async function getLLMResponse(prompt: string): Promise<string> {
     if (!response.ok) {
       const errorBody = await response.text();
       console.error(`[ERROR] LLM API error: ${response.status} - ${errorBody}`);
-      
+
       // Fallback to curl method
       console.log(`[DEBUG] Trying curl fallback for LLM...`);
       return await getLLMResponseViaCurl(prompt);
@@ -246,19 +246,19 @@ export async function getLLMResponse(prompt: string): Promise<string> {
 
 async function getLLMResponseViaCurl(prompt: string): Promise<string> {
   const tmpFile = path.join(os.tmpdir(), `ollama-llm-${Date.now()}.json`);
-  
+
   try {
     const payload = JSON.stringify({
-      model: 'mistral:7b',
+      model: process.env.LLM_MODEL || 'qwen2.5:3b',
       prompt,
       stream: false,
       options: LLM_OPTIONS,
     });
-    
+
     fs.writeFileSync(tmpFile, payload);
-    
+
     const command = `curl -s http://localhost:11434/api/generate -d @${tmpFile}`;
-    
+
     const { stdout, stderr } = await execAsync(command, {
       maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
       timeout: 120000, // 2 minute timeout for LLM
@@ -269,11 +269,11 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
     }
 
     const result = JSON.parse(stdout.trim());
-    
+
     if (result.error) {
       throw new Error(`Ollama LLM error: ${result.error}`);
     }
-    
+
     console.log(`[DEBUG] LLM curl response received, length: ${result.response?.length || 0}`);
     return result.response || '';
   } catch (error: any) {
@@ -284,18 +284,18 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
       if (fs.existsSync(tmpFile)) {
         fs.unlinkSync(tmpFile);
       }
-    } catch {}
+    } catch { }
   }
 }
 
 export async function querySOPs(question: string): Promise<{ answer: string; confidence: number; sources: string[] }> {
   try {
     const client = getChromaClient();
-    
+
     // Check if collection exists
     const collections = await client.listCollections();
     const collectionExists = collections.some(c => c.name === COLLECTION_NAME);
-    
+
     if (!collectionExists) {
       return {
         answer: "SOP index is empty. Please rebuild the index from the admin dashboard.",
@@ -324,13 +324,13 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
     }
 
     // Extract relevant SOP content
-    const relevantDocs = results.documents[0];
+    const relevantDocs = (results.documents[0] || []).filter((doc): doc is string => doc !== null);
     const distances = results.distances?.[0] || [];
     const metadatas = results.metadatas?.[0] || [];
 
     // Calculate confidence based on similarity (lower distance = higher confidence)
     // Convert distance to confidence (assuming cosine distance, 0 = identical, 1 = orthogonal)
-    const avgDistance = distances.length > 0 
+    const avgDistance = distances.length > 0
       ? distances.filter((d): d is number => d != null).reduce((a, b) => a + b, 0) / distances.length
       : 1;
     const confidence = Math.max(0, Math.min(1, 1 - avgDistance));
@@ -344,8 +344,9 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       })
       .join('\n\n---\n\n');
 
-    // Build RAG context with acronyms
-    const ragContext = await buildRAGContext(question);
+    // Build RAG context with acronyms using the ALREADY retrieved documents
+    // This avoids a second redundant vector search
+    const ragContext = await buildRAGContext(question, relevantDocs);
     const acronymContext = formatAcronymContext(ragContext.relevantAcronyms);
 
     // Build optimized prompt with Qwen tokens and grounding instructions
@@ -366,7 +367,7 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
     };
   } catch (error) {
     console.error('Error querying SOPs:', error);
-    
+
     // Fallback if services aren't running
     if (error instanceof Error && error.message.includes('fetch')) {
       return {
@@ -460,7 +461,7 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
           console.log(`[DEBUG] Processing entry ${globalIdx + 1}/${entries.length}: ${(entry.title || 'Untitled').substring(0, 50)}`);
           const embedding = await getEmbedding(entry.content);
           console.log(`[DEBUG] Completed entry ${globalIdx + 1}, embedding length: ${embedding.length}`);
-          
+
           return {
             id: `sop-${globalIdx}`,
             embedding,
@@ -506,12 +507,12 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
     // Track indexed SOPs in database
     // Group entries by source file and category
     const sopGroups = new Map<string, { category: string; count: number }>();
-    
+
     entries.forEach((entry) => {
       const source = entry.sourceFile || 'Unknown';
       const category = entry.category || 'General';
       const key = `${source}::${category}`;
-      
+
       if (!sopGroups.has(key)) {
         sopGroups.set(key, { category, count: 0 });
       }
@@ -542,23 +543,23 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
 export async function indexAcronyms(): Promise<number> {
   try {
     const { loadAcronyms } = await import('./acronyms');
-    
+
     console.log('[INDEX] Loading acronyms from CSV...');
     const acronyms = loadAcronyms();
-    
+
     if (acronyms.length === 0) {
       throw new Error('No acronyms found in CSV');
     }
-    
+
     console.log(`[INDEX] Found ${acronyms.length} acronyms`);
-    
+
     const client = getChromaClient();
     const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
-    
+
     // Delete existing collection if it exists (to avoid embedding function mismatch)
     const collections = await client.listCollections();
     const existingCollection = collections.find(c => c.name === ACRONYM_COLLECTION_NAME);
-    
+
     if (existingCollection) {
       console.log(`[INDEX] Deleting existing collection "${ACRONYM_COLLECTION_NAME}" to recreate without embedding function...`);
       try {
@@ -567,29 +568,29 @@ export async function indexAcronyms(): Promise<number> {
         console.warn(`[INDEX] Error deleting collection: ${e}`);
       }
     }
-    
+
     // Create new collection without embedding function (we provide embeddings manually)
     console.log(`[INDEX] Creating collection "${ACRONYM_COLLECTION_NAME}"...`);
     const collection = await client.createCollection({
       name: ACRONYM_COLLECTION_NAME,
       metadata: { description: 'Financial acronyms for RAG' },
     });
-    
+
     console.log('[INDEX] Generating embeddings and preparing documents...');
-    
+
     const ids: string[] = [];
     const embeddings: number[][] = [];
     const documents: string[] = [];
     const metadatas: Record<string, string | number | boolean>[] = [];
-    
+
     for (let i = 0; i < acronyms.length; i++) {
       const acronym = acronyms[i];
       const document = `${acronym.abbreviation} stands for ${acronym.fullForm}. ${acronym.abbreviation} means ${acronym.fullForm}. Category: ${acronym.category}`;
-      
+
       console.log(`[INDEX] Processing ${i + 1}/${acronyms.length}: ${acronym.abbreviation}`);
-      
+
       const embedding = await getEmbedding(document);
-      
+
       ids.push(`acronym_${i}`);
       embeddings.push(embedding);
       documents.push(document);
@@ -600,7 +601,7 @@ export async function indexAcronyms(): Promise<number> {
         type: 'acronym',
       });
     }
-    
+
     console.log('[INDEX] Upserting to ChromaDB...');
     await collection.upsert({
       ids,
@@ -608,7 +609,7 @@ export async function indexAcronyms(): Promise<number> {
       documents,
       metadatas,
     });
-    
+
     console.log(`[INDEX] Successfully indexed ${acronyms.length} acronyms into ChromaDB`);
     return acronyms.length;
   } catch (error: any) {
@@ -621,26 +622,26 @@ export async function getAcronymStats(): Promise<{ total: number; byCategory: Re
   try {
     const client = getChromaClient();
     const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
-    
+
     const collections = await client.listCollections();
     const collectionExists = collections.some(c => c.name === ACRONYM_COLLECTION_NAME);
-    
+
     if (!collectionExists) {
       return { total: 0, byCategory: {}, lastIndexed: null };
     }
-    
+
     const collection = await client.getCollection({ name: ACRONYM_COLLECTION_NAME });
     const count = await collection.count();
-    
+
     const results = await collection.get({ limit: count });
     const metadatas = results.metadatas || [];
-    
+
     const byCategory: Record<string, number> = {};
     metadatas.forEach((meta: any) => {
       const category = meta?.category || 'Uncategorized';
       byCategory[category] = (byCategory[category] || 0) + 1;
     });
-    
+
     return {
       total: count,
       byCategory,
@@ -663,27 +664,27 @@ export async function queryAcronyms(query: string, nResults: number = 5): Promis
   try {
     const client = getChromaClient();
     const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
-    
+
     const collections = await client.listCollections();
     const collectionExists = collections.some(c => c.name === ACRONYM_COLLECTION_NAME);
-    
+
     if (!collectionExists) {
       console.log('[ACRONYMS] Collection does not exist');
       return [];
     }
-    
+
     const collection = await client.getCollection({ name: ACRONYM_COLLECTION_NAME });
     const queryEmbedding = await getEmbedding(query);
-    
+
     const results = await collection.query({
       queryEmbeddings: [queryEmbedding],
       nResults,
     });
-    
+
     if (!results.metadatas || results.metadatas[0].length === 0) {
       return [];
     }
-    
+
     return results.metadatas[0].map((meta: any) => ({
       abbreviation: String(meta.abbreviation || ''),
       fullForm: String(meta.fullForm || ''),

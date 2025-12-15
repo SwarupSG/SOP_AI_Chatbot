@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Send, Copy, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 import PredefinedQuestionsDropdown from './PredefinedQuestionsDropdown';
+import SOPTagCloud from './SOPTagCloud';
 
 interface Message {
   id: string;
@@ -237,6 +238,12 @@ export default function ChatBox() {
     inputRef.current?.focus();
   };
 
+  const handleKeywordClick = (keyword: string) => {
+    // Populate input with a question template using the keyword
+    setQuestion(`Tell me about ${keyword}`);
+    inputRef.current?.focus();
+  };
+
   const copyToClipboard = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -342,6 +349,9 @@ export default function ChatBox() {
                 </div>
               )}
             </div>
+
+            {/* Tag Cloud */}
+            <SOPTagCloud onKeywordClick={handleKeywordClick} />
 
             {/* Recent Questions */}
             {recentQuestions.length > 0 && (

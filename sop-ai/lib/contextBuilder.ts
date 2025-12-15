@@ -73,11 +73,12 @@ async function querySOPDocuments(queryText: string, nResults: number = 10): Prom
   }
 }
 
-export async function buildRAGContext(userQuery: string): Promise<RAGContext> {
+export async function buildRAGContext(userQuery: string, preRetrievedDocs?: string[]): Promise<RAGContext> {
   const acronymMap = getAcronymMap();
   const foundAcronymsMap = new Map<string, Acronym>();
   
-  const sopContext = await querySOPDocuments(userQuery);
+  // Use pre-retrieved docs if available, otherwise query
+  const sopContext = preRetrievedDocs || await querySOPDocuments(userQuery);
   
   const acronymResults = await queryAcronyms(userQuery, 5);
   
