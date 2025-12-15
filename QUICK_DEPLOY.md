@@ -48,3 +48,6 @@ See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed instructions, secu
 2. Enable Nginx caching for static assets
 3. Consider quantized Ollama models for faster responses
 4. Set up automated backups (script included in guide)
+
+
+

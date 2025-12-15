@@ -53,3 +53,6 @@ echo ""
 echo "🔍 Check logs with: docker-compose -f docker-compose.prod.yml logs -f"
 echo "🌐 Application should be available at http://localhost:3000"
 
+
+
+

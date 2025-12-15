@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
   // Standalone output for Docker deployments
   output: 'standalone',
   
-  // Optimize for production
-  swcMinify: true,
-  
   // Image optimization (if you add images later)
   images: {
     unoptimized: true, // Set to false if you add next/image components

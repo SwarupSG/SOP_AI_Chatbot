@@ -83,3 +83,6 @@ LLM_WEIGHT=0.3        # 30% weight on LLM
 - **LLM confidence**: `lib/chroma.ts` → `calculateLLMConfidence()`
 - **Heuristic analysis**: `lib/chroma.ts` → `analyzeAnswerConfidence()`
 
+
+
+

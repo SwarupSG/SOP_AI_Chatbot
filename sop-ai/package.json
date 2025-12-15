@@ -10,12 +10,12 @@
     "seed": "tsx scripts/seed.ts",
     "parse-sop": "tsx scripts/parse-sop.ts",
     "index": "tsx sop-index.ts",
-    "migrate": "tsx scripts/migrate.ts"
+    "reset-chroma": "tsx scripts/reset-chroma.ts",
+    "index-acronyms": "tsx scripts/index-acronyms.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
     "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -24,7 +24,6 @@
     "chromadb": "^3.1.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.1",
     "jsonwebtoken": "^9.0.3",
     "lucia": "^3.2.2",

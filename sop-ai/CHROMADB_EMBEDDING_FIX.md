@@ -121,3 +121,6 @@ After these changes:
 
 The error should no longer occur because ChromaDB will never try to use DefaultEmbeddingFunction.
 
+
+
+

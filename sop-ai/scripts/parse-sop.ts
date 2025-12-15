@@ -12,82 +12,6 @@ export interface SOPEntry {
   [key: string]: any;
 }
 
-export interface Chunk {
-  title: string;
-  content: string;
-  source: string;
-  category: string;
-  chunkIndex?: number;
-  totalChunks?: number;
-  sourceFile?: string;
-  section?: string;
-}
-
-// Chunking configuration
-const MAX_CHUNK_WORDS = 400;    // Maximum words per chunk
-const MIN_CHUNK_WORDS = 50;     // Minimum words per chunk
-const OVERLAP_WORDS = 75;       // Words to overlap between chunks
-
-/**
- * Split entries into chunks with size limits and overlap
- * Large entries are split into multiple chunks with overlapping content
- */
-export function createChunksWithOverlap(entries: SOPEntry[]): Chunk[] {
-  const chunks: Chunk[] = [];
-  
-  entries.forEach(entry => {
-    const words = entry.content.split(/\s+/);
-    
-    // Always include title at start of content
-    const titlePrefix = entry.title ? `${entry.title}\n\n` : '';
-    
-    if (words.length <= MAX_CHUNK_WORDS) {
-      // Small enough, use as single chunk
-      chunks.push({
-        title: entry.title || 'SOP Entry',
-        content: titlePrefix + entry.content,
-        source: entry.sourceFile || 'Unknown',
-        category: entry.category || 'SOP',
-        sourceFile: entry.sourceFile,
-        section: entry.section,
-      });
-    } else {
-      // Split into multiple chunks with overlap
-      const stepSize = MAX_CHUNK_WORDS - OVERLAP_WORDS;
-      const totalChunks = Math.ceil((words.length - MAX_CHUNK_WORDS) / stepSize) + 1;
-      let chunkIndex = 0;
-      
-      for (let i = 0; i < words.length; i += stepSize) {
-        const chunkWords = words.slice(i, i + MAX_CHUNK_WORDS);
-        
-        // Skip if too small (unless it's the last chunk)
-        if (chunkWords.length < MIN_CHUNK_WORDS && i + MAX_CHUNK_WORDS < words.length) {
-          continue;
-        }
-        
-        chunkIndex++;
-        const chunkTitle = totalChunks > 1 
-          ? `${entry.title || 'SOP Entry'} (Part ${chunkIndex}/${totalChunks})` 
-          : (entry.title || 'SOP Entry');
-        
-        chunks.push({
-          title: chunkTitle,
-          content: titlePrefix + chunkWords.join(' '),
-          source: entry.sourceFile || 'Unknown',
-          category: entry.category || 'SOP',
-          chunkIndex,
-          totalChunks,
-          sourceFile: entry.sourceFile,
-          section: entry.section,
-        });
-      }
-    }
-  });
-  
-  console.log(`[CHUNKING] Created ${chunks.length} chunks from ${entries.length} entries`);
-  return chunks;
-}
-
 export function parseSOPExcel(filePath: string): SOPEntry[] {
   console.log(`Reading Excel file: ${filePath}`);
   
@@ -141,7 +65,6 @@ export function parseSOPExcel(filePath: string): SOPEntry[] {
       const entry: SOPEntry = {
         content: '',
         category: sheetName,
-        sourceFile: filePath,
       };
 
       const contentParts: string[] = [];
@@ -202,111 +125,6 @@ export function parseSOPExcel(filePath: string): SOPEntry[] {
   return entries;
 }
 
-function isLikelyHeading(text: string): boolean {
-  const trimmed = text.trim();
-  
-  // Too short or too long
-  if (trimmed.length < 3 || trimmed.length > 150) return false;
-  
-  // Common SOP heading patterns
-  const headingPatterns = [
-    /^How to/i,
-    /^Steps? to/i,
-    /^Steps? for/i,
-    /^Procedure/i,
-    /^Process/i,
-    /^Guide/i,
-    /^What is/i,
-    /^When to/i,
-    /^Where to/i,
-    /^\d+\.\s+/,  // Numbered items like "1. Go to..."
-    /\?$/,              // Lines ending with question mark are headings
-    /^Why /i,           // "Why..." questions
-    /^Which /i,         // "Which..." questions  
-    /^Can I/i,          // "Can I..." questions
-    /^How do/i,         // "How do I..." questions
-    /^How can/i,        // "How can I..." questions
-  ];
-  
-  if (headingPatterns.some(p => p.test(trimmed))) return true;
-  
-  // Short lines not ending with period are likely headings
-  if (trimmed.length < 100 && !trimmed.endsWith('.')) return true;
-  
-  return false;
-}
-
-function parseWordDocFromHtml(html: string, fileName: string, filePath: string): SOPEntry[] {
-  const entries: SOPEntry[] = [];
-  
-  // Use exec to find all headings and their positions
-  const headingRegex = /<h[1-4][^>]*>(.*?)<\/h[1-4]>/gi;
-  const headings: { text: string; index: number; endIndex: number }[] = [];
-  
-  let match;
-  while ((match = headingRegex.exec(html)) !== null) {
-    headings.push({
-      text: match[1].replace(/<[^>]+>/g, '').trim(), // Strip inner HTML tags
-      index: match.index,
-      endIndex: match.index + match[0].length
-    });
-  }
-  
-  console.log(`[PARSE] Found ${headings.length} HTML headings in document`);
-  
-  // If no headings found, return empty (caller will use text heuristics)
-  if (headings.length === 0) {
-    return [];
-  }
-  
-  // Extract content before first heading (if any)
-  if (headings.length > 0 && headings[0].index > 0) {
-    const preContent = html.substring(0, headings[0].index)
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    if (preContent.length > 20) {
-      entries.push({
-        title: fileName,
-        content: preContent,
-        category: fileName,
-        sourceFile: filePath,
-      });
-    }
-  }
-  
-  // Extract content between each heading and the next
-  for (let i = 0; i < headings.length; i++) {
-    const heading = headings[i];
-    const nextHeading = headings[i + 1];
-    
-    // Content starts after this heading tag ends
-    const contentStart = heading.endIndex;
-    // Content ends at next heading (or end of document)
-    const contentEnd = nextHeading ? nextHeading.index : html.length;
-    
-    const contentHtml = html.substring(contentStart, contentEnd);
-    const contentText = contentHtml
-      .replace(/<[^>]+>/g, ' ')  // Remove HTML tags
-      .replace(/\s+/g, ' ')       // Normalize whitespace
-      .trim();
-    
-    // Only add if there's meaningful content
-    if (contentText.length > 10) {
-      entries.push({
-        title: heading.text || fileName,
-        content: contentText,
-        category: fileName,
-        sourceFile: filePath,
-      });
-      console.log(`[PARSE] Extracted section: "${heading.text}" (${contentText.length} chars)`);
-    }
-  }
-  
-  return entries;
-}
-
 export async function parseSOPWord(filePath: string): Promise<SOPEntry[]> {
   console.log(`Reading Word document: ${filePath}`);
   
@@ -315,81 +133,68 @@ export async function parseSOPWord(filePath: string): Promise<SOPEntry[]> {
   }
 
   try {
+    // Extract text from Word document
+    const result = await mammoth.extractRawText({ path: filePath });
+    const text = result.value;
+    
+    // Extract HTML for better structure (optional, can use for more advanced parsing)
+    const htmlResult = await mammoth.convertToHtml({ path: filePath });
+    
+    const entries: SOPEntry[] = [];
     const fileName = path.basename(filePath, path.extname(filePath));
     
-    // Extract HTML for better structure (Mammoth preserves heading tags)
-    const htmlResult = await mammoth.convertToHtml({ path: filePath });
-    const html = htmlResult.value;
+    // Split document into sections (by headings or paragraphs)
+    // For now, we'll create entries based on paragraphs or sections
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
     
-    // Check if HTML has heading structure
-    const hasHeadings = /<h[1-4]/i.test(html);
+    // Try to identify headings (lines that are short and might be titles)
+    let currentTitle = fileName;
+    let currentContent: string[] = [];
     
-    if (hasHeadings) {
-      console.log(`[PARSE] Using HTML structure for: ${fileName}`);
-      const entries = parseWordDocFromHtml(html, fileName, filePath);
-      console.log(`Parsed ${entries.length} SOP entries from Word document (HTML structure)`);
-      return entries;
-    } else {
-      console.log(`[PARSE] No HTML headings, using text heuristics for: ${fileName}`);
+    paragraphs.forEach((para, index) => {
+      const trimmed = para.trim();
       
-      // Fall back to text-based parsing with heuristics
-      const result = await mammoth.extractRawText({ path: filePath });
-      const text = result.value;
-      
-      const entries: SOPEntry[] = [];
-      
-      // Split document into sections (by headings or paragraphs)
-      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-      
-      // Try to identify headings (lines that are short and might be titles)
-      let currentTitle = fileName;
-      let currentContent: string[] = [];
-      
-      paragraphs.forEach((para, index) => {
-        const trimmed = para.trim();
-        
-        // Use improved heading detection that recognizes questions and common SOP patterns
-        if (isLikelyHeading(trimmed)) {
-          // Save previous section if it has content
-          if (currentContent.length > 0) {
-            entries.push({
-              title: currentTitle,
-              content: currentContent.join('\n\n'),
-              category: fileName,
-              sourceFile: filePath,
-            });
-          }
-          // Start new section
-          currentTitle = trimmed;
-          currentContent = [];
-        } else {
-          currentContent.push(trimmed);
+      // Heuristic: if paragraph is short (< 100 chars) and ends without period, it might be a heading
+      if (trimmed.length < 100 && !trimmed.endsWith('.') && !trimmed.endsWith('!') && !trimmed.endsWith('?')) {
+        // Save previous section if it has content
+        if (currentContent.length > 0) {
+          entries.push({
+            title: currentTitle,
+            content: currentContent.join('\n\n'),
+            category: fileName,
+            sourceFile: filePath,
+          });
         }
+        // Start new section
+        currentTitle = trimmed;
+        currentContent = [];
+      } else {
+        currentContent.push(trimmed);
+      }
+    });
+    
+    // Add the last section
+    if (currentContent.length > 0) {
+      entries.push({
+        title: currentTitle,
+        content: currentContent.join('\n\n'),
+        category: fileName,
+        sourceFile: filePath,
       });
-      
-      // Add the last section
-      if (currentContent.length > 0) {
-        entries.push({
-          title: currentTitle,
-          content: currentContent.join('\n\n'),
-          category: fileName,
-          sourceFile: filePath,
-        });
-      }
-      
-      // If no sections were created, create one entry with all content
-      if (entries.length === 0 && text.trim()) {
-        entries.push({
-          title: fileName,
-          content: text,
-          category: fileName,
-          sourceFile: filePath,
-        });
-      }
-      
-      console.log(`Parsed ${entries.length} SOP entries from Word document (text heuristics)`);
-      return entries;
     }
+    
+    // If no sections were created, create one entry with all content
+    if (entries.length === 0 && text.trim()) {
+      entries.push({
+        title: fileName,
+        content: text,
+        category: fileName,
+        sourceFile: filePath,
+      });
+    }
+    
+    console.log(`Parsed ${entries.length} SOP entries from Word document`);
+    return entries;
   } catch (error) {
     console.error(`Error parsing Word document ${filePath}:`, error);
     throw error;

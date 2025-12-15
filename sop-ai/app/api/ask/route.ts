@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { querySOPs } from '@/lib/chroma';
 import { db, unansweredQuestions, recentQuestions } from '@/lib/db';
+import { validateAcronymsInResponse, expandUnexpandedAcronyms } from '@/lib/validateResponse';
+import { checkGrounding, isProperDecline } from '@/lib/groundingCheck';
+import { buildRAGContext } from '@/lib/contextBuilder';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,10 +37,32 @@ export async function POST(request: NextRequest) {
     // Query SOPs using RAG (Ollama + ChromaDB)
     const result = await querySOPs(question);
 
+    // Step 1: Validate acronym definitions
+    const { correctedResponse, corrections } = validateAcronymsInResponse(result.answer);
+    if (corrections.length > 0) {
+      console.log('[ASK] Acronym corrections:', corrections);
+    }
+
+    // Step 2: Expand any unexpanded acronyms
+    const expandedResponse = expandUnexpandedAcronyms(correctedResponse);
+
+    // Step 3: Check grounding quality
+    // Get context for grounding check
+    const ragContext = await buildRAGContext(question);
+    const contextForGrounding = ragContext.sopContext.join('\n\n');
+    
+    const groundingResult = checkGrounding(expandedResponse, contextForGrounding);
+    if (!groundingResult.isGrounded && !isProperDecline(expandedResponse)) {
+      console.log('[ASK] Grounding warnings:', groundingResult.warnings);
+    }
+
+    // Use expandedResponse as the final answer
+    const finalAnswer = expandedResponse;
+
     // Save to recent questions
     await db.insert(recentQuestions).values({
       question,
-      answer: result.answer,
+      answer: finalAnswer,
       userId: user.id,
       confidence: Math.round(result.confidence * 100),
     });
@@ -52,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      answer: result.answer,
+      answer: finalAnswer,
       confidence: result.confidence,
       sources: result.sources,
     });

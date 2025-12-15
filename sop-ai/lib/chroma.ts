@@ -6,6 +6,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { db, indexedSOPs } from './db';
 import { eq } from 'drizzle-orm';
+import { LLM_OPTIONS, buildPrompt } from './promptConstants';
+import { buildRAGContext, formatAcronymContext } from './contextBuilder';
 
 const execAsync = promisify(exec);
 
@@ -13,35 +15,50 @@ const CHROMA_URL = process.env.CHROMA_URL || 'http://localhost:8000';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const COLLECTION_NAME = 'sop-documents';
 
-// Confidence calculation weights (adjustable via environment variables)
-const RETRIEVAL_WEIGHT = parseFloat(process.env.RETRIEVAL_WEIGHT || '0.6'); // 60% by default
-const LLM_WEIGHT = parseFloat(process.env.LLM_WEIGHT || '0.4'); // 40% by default
+// Path resolution helpers
+// Find SOP Excel file
+function findSOPExcelFile(): string | null {
+  const filename = 'S4_-_SOPs_-_MF_Transactions.xlsx';
+  const locations = [
+    path.join(process.cwd(), 'data', filename),
+    path.join(process.cwd(), filename),
+    path.join(process.cwd(), '..', filename),
+  ];
+  
+  for (const loc of locations) {
+    try {
+      if (fs.existsSync(loc)) {
+        console.log('[INDEX] Found Excel at:', loc);
+        return loc;
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
 
-// Domain-specific synonym dictionary for query expansion
-const DOMAIN_SYNONYMS: Record<string, string[]> = {
-  // Acronyms
-  'MFU': ['Mutual Fund Unit', 'MF Unit', 'mutual fund unit', 'MFU portal'],
-  'CAN': ['Consolidated Account Number', 'CAN number', 'consolidated account'],
-  'SOP': ['Standard Operating Procedure', 'procedure', 'process'],
-  'SIP': ['Systematic Investment Plan', 'SIP order', 'systematic investment'],
-  'FOT': ['First Order Today', 'FOT order'],
-  'NCT': ['NCT form', 'NCT mandate'],
-  'MICR': ['MICR code', 'bank MICR'],
+// Find template_sample directory
+function findTemplateDir(): string | null {
+  const locations = [
+    path.join(process.cwd(), 'data', 'template_sample'),
+    path.join(process.cwd(), 'data'),
+    path.join(process.cwd(), 'template_sample'),
+    path.join(process.cwd(), '..', 'template_sample'),
+  ];
   
-  // Action synonyms
-  'check': ['verify', 'view', 'see', 'find', 'look up', 'lookup', 'track'],
-  'status': ['registration status', 'current status', 'state', 'progress'],
-  'reset': ['change', 'update', 'modify', 'edit'],
-  'create': ['add', 'new', 'make', 'set up', 'setup', 'register'],
-  'delete': ['remove', 'cancel', 'deactivate'],
-  'change': ['modify', 'update', 'edit', 'addition', 'deletion'],
-  'process': ['handle', 'execute', 'complete', 'submit'],
-  
-  // System/UI terms
-  'tracker': ['CAN tracker', 'status tracker', 'tracking', 'track status'],
-  'bank details': ['bank account', 'bank information', 'account details', 'bank MICR'],
-  'form': ['application form', 'fillable form', 'mandate form'],
-};
+  for (const loc of locations) {
+    try {
+      if (fs.existsSync(loc) && fs.statSync(loc).isDirectory()) {
+        console.log('[INDEX] Found template dir at:', loc);
+        return loc;
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
 
 // Debug: Print configuration on module load
 console.log(`[CONFIG] OLLAMA_URL: ${OLLAMA_URL}`);
@@ -50,129 +67,11 @@ console.log(`[CONFIG] OLLAMA_URL env var: ${process.env.OLLAMA_URL || 'not set'}
 
 let chromaClient: ChromaClient | null = null;
 
-function getChromaClient(): ChromaClient {
+export function getChromaClient(): ChromaClient {
   if (!chromaClient) {
-    // Create ChromaDB client without any default embedding function
-    // We use Ollama embeddings explicitly
     chromaClient = new ChromaClient({ path: CHROMA_URL });
   }
   return chromaClient;
-}
-
-/**
- * Expand query using domain-specific synonyms
- * Creates variations of the query to improve retrieval
- */
-function expandQuery(query: string): string[] {
-  const variations = new Set<string>();
-  variations.add(query); // Always include original query
-  
-  const lowerQuery = query.toLowerCase();
-  
-  Object.entries(DOMAIN_SYNONYMS).forEach(([term, synonyms]) => {
-    const termLower = term.toLowerCase();
-    if (lowerQuery.includes(termLower)) {
-      synonyms.forEach(syn => {
-        // Create variation with synonym
-        const variation = query.replace(new RegExp(term, 'gi'), syn);
-        variations.add(variation);
-      });
-    }
-  });
-  
-  // Return unique variations (max 5 to avoid too many queries)
-  return Array.from(variations).slice(0, 5);
-}
-
-interface RetrievalResult {
-  id: string;
-  content: string;
-  metadata: { title?: string; source?: string; category?: string; section?: string };
-  similarity: number;
-}
-
-/**
- * Re-rank results by boosting those where query keywords appear in the title
- * This helps prioritize results that directly match the query intent
- */
-function rerankResults(query: string, results: RetrievalResult[]): RetrievalResult[] {
-  const queryTerms = query.toLowerCase()
-    .split(/\s+/)
-    .filter(term => term.length > 2); // Ignore very short words
-  
-  return results
-    .map(result => {
-      let boost = 0;
-      const title = (result.metadata.title || '').toLowerCase();
-      const content = result.content.toLowerCase();
-      
-      queryTerms.forEach(term => {
-        // Title match = big boost
-        if (title.includes(term)) {
-          boost += 0.15;
-          console.log(`[RERANK] Boost +0.15 for title match: "${term}" in "${result.metadata.title}"`);
-        }
-        // Content match = smaller boost
-        else if (content.includes(term)) {
-          boost += 0.03;
-        }
-      });
-      
-      return {
-        ...result,
-        similarity: Math.min(1, result.similarity + boost) // Cap at 1.0
-      };
-    })
-    .sort((a, b) => b.similarity - a.similarity);
-}
-
-/**
- * Merge and deduplicate results from multiple query variations
- * Returns top results sorted by similarity (best first)
- */
-function mergeQueryResults(allResults: any[], topN: number = 10): {
-  documents: string[];
-  distances: number[];
-  metadatas: any[];
-} {
-  // Combine all results into a single array with document content as key for deduplication
-  const resultMap = new Map<string, { distance: number; metadata: any; document: string }>();
-  
-  allResults.forEach((result) => {
-    if (!result.documents || !result.documents[0]) return;
-    
-    const docs = result.documents[0];
-    const distances = result.distances?.[0] || [];
-    const metadatas = result.metadatas?.[0] || [];
-    
-    docs.forEach((doc: string, i: number) => {
-      // Use document content as key for deduplication
-      const docKey = doc.substring(0, 200); // Use first 200 chars as key
-      
-      // Keep the result with the best (lowest) distance
-      const distance = distances[i] ?? 1;
-      const existing = resultMap.get(docKey);
-      
-      if (!existing || distance < existing.distance) {
-        resultMap.set(docKey, {
-          distance,
-          metadata: metadatas[i] || {},
-          document: doc,
-        });
-      }
-    });
-  });
-  
-  // Convert to arrays and sort by distance (best first)
-  const merged = Array.from(resultMap.values())
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, topN);
-  
-  return {
-    documents: merged.map(r => r.document),
-    distances: merged.map(r => r.distance),
-    metadatas: merged.map(r => r.metadata),
-  };
 }
 
 async function getEmbeddingViaCLI(text: string): Promise<number[]> {
@@ -234,7 +133,7 @@ async function getEmbeddingViaCLI(text: string): Promise<number[]> {
   }
 }
 
-async function getEmbedding(text: string): Promise<number[]> {
+export async function getEmbedding(text: string): Promise<number[]> {
   // Debug: Show exact URL and environment
   console.log(`[DEBUG] FULL URL: ${OLLAMA_URL}/api/embeddings`);
   console.log(`[DEBUG] Env check - process.env.OLLAMA_URL: ${process.env.OLLAMA_URL || 'not set'}`);
@@ -284,11 +183,8 @@ async function getEmbedding(text: string): Promise<number[]> {
       } else {
         const errorText = await response.text();
         console.log(`[DEBUG] API response not OK (${response.status}): ${errorText.substring(0, 200)}`);
-        
-        // Add helpful message for missing model
-        if (response.status === 404) {
-          console.log(`[HINT] Model not found. Run: ollama pull nomic-embed-text`);
-        } else {
+        // If 404, try next model name; otherwise break
+        if (response.status !== 404) {
           break;
         }
       }
@@ -312,10 +208,6 @@ async function getEmbedding(text: string): Promise<number[]> {
 }
 
 export async function getLLMResponse(prompt: string): Promise<string> {
-  return (await getLLMResponseWithConfidence(prompt)).response;
-}
-
-export async function getLLMResponseWithConfidence(prompt: string): Promise<{ response: string; confidence?: number }> {
   try {
     console.log(`[DEBUG] Calling LLM with prompt length: ${prompt.length}`);
     
@@ -323,14 +215,10 @@ export async function getLLMResponseWithConfidence(prompt: string): Promise<{ re
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'qwen2.5:3b',
+        model: 'mistral:7b',
         prompt,
         stream: false,
-        options: {
-          // Request token probabilities if supported
-          top_p: 0.9,
-          temperature: 0.7,
-        },
+        options: LLM_OPTIONS,
       }),
     });
 
@@ -342,132 +230,18 @@ export async function getLLMResponseWithConfidence(prompt: string): Promise<{ re
       
       // Fallback to curl method
       console.log(`[DEBUG] Trying curl fallback for LLM...`);
-      const fallbackResponse = await getLLMResponseViaCurl(prompt);
-      return { response: fallbackResponse };
+      return await getLLMResponseViaCurl(prompt);
     }
 
     const data = await response.json();
     console.log(`[DEBUG] LLM response received, length: ${data.response?.length || 0}`);
-    
-    // Try to extract confidence from response if available
-    // Ollama might not return probabilities, so we'll use self-assessment
-    return {
-      response: data.response || '',
-      // Confidence will be calculated separately via self-assessment
-    };
+    return data.response || '';
   } catch (error: any) {
     console.error('[ERROR] getLLMResponse failed:', error.message);
     // Try curl fallback
     console.log(`[DEBUG] Trying curl fallback for LLM after error...`);
-    const fallbackResponse = await getLLMResponseViaCurl(prompt);
-    return { response: fallbackResponse };
+    return await getLLMResponseViaCurl(prompt);
   }
-}
-
-/**
- * Calculate LLM confidence using self-assessment
- * Asks the LLM to rate its own confidence in the answer
- */
-async function calculateLLMConfidence(question: string, answer: string, context: string): Promise<number> {
-  try {
-    const assessmentPrompt = `You are evaluating the confidence level of an AI assistant's answer.
-
-Question: ${question}
-
-Context provided to the assistant:
-${context.substring(0, 500)}...
-
-Answer provided: ${answer}
-
-On a scale of 0.0 to 1.0, how confident should the assistant be in this answer?
-Consider:
-- How well the answer addresses the question
-- How well the context supports the answer
-- Whether the answer is complete and accurate
-- Whether there are any uncertainties or gaps
-
-Respond with ONLY a number between 0.0 and 1.0 (e.g., 0.85 for 85% confidence).`;
-
-    const assessmentResponse = await getLLMResponse(assessmentPrompt);
-    
-    // Extract number from response
-    const match = assessmentResponse.match(/(\d+\.?\d*)/);
-    if (match) {
-      const confidence = parseFloat(match[1]);
-      // Normalize to 0-1 range (in case LLM returns 0-100)
-      const normalized = confidence > 1 ? confidence / 100 : confidence;
-      return Math.max(0, Math.min(1, normalized));
-    }
-    
-    // Fallback: analyze answer for uncertainty indicators
-    return analyzeAnswerConfidence(answer);
-  } catch (error) {
-    console.error('Error calculating LLM confidence:', error);
-    // Fallback to heuristic analysis
-    return analyzeAnswerConfidence(answer);
-  }
-}
-
-/**
- * Heuristic-based confidence analysis
- * Looks for uncertainty indicators in the answer
- */
-function analyzeAnswerConfidence(answer: string): number {
-  const lowerAnswer = answer.toLowerCase();
-  
-  // High confidence indicators
-  const highConfidencePhrases = [
-    'according to',
-    'based on',
-    'the procedure is',
-    'the steps are',
-    'you should',
-    'you must',
-    'you need to',
-  ];
-  
-  // Low confidence indicators
-  const lowConfidencePhrases = [
-    'i\'m not sure',
-    'i don\'t know',
-    'unclear',
-    'uncertain',
-    'may not',
-    'might not',
-    'possibly',
-    'perhaps',
-    'i cannot',
-    'unable to',
-    'doesn\'t contain enough information',
-    'no relevant',
-    'not found',
-  ];
-  
-  // Count indicators
-  const highCount = highConfidencePhrases.filter(phrase => lowerAnswer.includes(phrase)).length;
-  const lowCount = lowConfidencePhrases.filter(phrase => lowerAnswer.includes(phrase)).length;
-  
-  // Base confidence
-  let confidence = 0.7; // Default moderate confidence
-  
-  // Adjust based on indicators
-  if (highCount > 0 && lowCount === 0) {
-    confidence = 0.85; // High confidence
-  } else if (lowCount > 0) {
-    confidence = Math.max(0.2, 0.7 - (lowCount * 0.15)); // Reduce confidence
-  }
-  
-  // Check answer length (very short answers might be less confident)
-  if (answer.length < 50) {
-    confidence *= 0.9;
-  }
-  
-  // Check if answer explicitly states uncertainty
-  if (lowerAnswer.includes('if the context doesn\'t contain enough information')) {
-    confidence = 0.3;
-  }
-  
-  return Math.max(0, Math.min(1, confidence));
 }
 
 async function getLLMResponseViaCurl(prompt: string): Promise<string> {
@@ -475,9 +249,10 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
   
   try {
     const payload = JSON.stringify({
-      model: 'qwen2.5:3b',
+      model: 'mistral:7b',
       prompt,
       stream: false,
+      options: LLM_OPTIONS,
     });
     
     fs.writeFileSync(tmpFile, payload);
@@ -515,9 +290,6 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
 
 export async function querySOPs(question: string): Promise<{ answer: string; confidence: number; sources: string[] }> {
   try {
-    console.log('\n[RETRIEVAL] =====================================');
-    console.log('[RETRIEVAL] Query:', question);
-    
     const client = getChromaClient();
     
     // Check if collection exists
@@ -525,8 +297,6 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
     const collectionExists = collections.some(c => c.name === COLLECTION_NAME);
     
     if (!collectionExists) {
-      console.log('[RETRIEVAL] Collection does not exist');
-      console.log('[RETRIEVAL] =====================================\n');
       return {
         answer: "SOP index is empty. Please rebuild the index from the admin dashboard.",
         confidence: 0.0,
@@ -534,31 +304,18 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       };
     }
 
-    // Get collection (must have been created without embedding function)
     const collection = await client.getCollection({ name: COLLECTION_NAME });
 
-    // Expand query using domain-specific synonyms
-    const queryVariations = expandQuery(question);
-    console.log('[RETRIEVAL] Query variations:', queryVariations);
+    // Generate embedding for the question
+    const queryEmbedding = await getEmbedding(question);
 
-    // Get results for each query variation
-    const allQueryResults = await Promise.all(
-      queryVariations.map(async (queryVar) => {
-        const embedding = await getEmbedding(queryVar);
-        const result = await collection.query({
-          queryEmbeddings: [embedding],
-          nResults: 10, // Get top 10 for each variation
-        });
-        return result;
-      })
-    );
+    // Query ChromaDB for similar documents
+    const results = await collection.query({
+      queryEmbeddings: [queryEmbedding],
+      nResults: 5, // Get top 5 most relevant SOPs
+    });
 
-    // Merge and deduplicate results, keeping top 10 by similarity
-    const mergedResults = mergeQueryResults(allQueryResults, 10);
-    
-    if (!mergedResults.documents || mergedResults.documents.length === 0) {
-      console.log('[RETRIEVAL] No results found after merging');
-      console.log('[RETRIEVAL] =====================================\n');
+    if (!results.documents || results.documents[0].length === 0) {
       return {
         answer: "No relevant SOPs found for this question.",
         confidence: 0.0,
@@ -566,33 +323,10 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       };
     }
 
-    // Convert merged results to RetrievalResult format for re-ranking
-    let retrievalResults: RetrievalResult[] = mergedResults.documents.map((doc, i) => ({
-      id: `result-${i}`,
-      content: doc,
-      metadata: mergedResults.metadatas[i] || {},
-      similarity: 1 - (mergedResults.distances[i] || 0) // Convert distance to similarity
-    }));
-
-    console.log('[RETRIEVAL] Retrieved', retrievalResults.length, 'results (after merging', allQueryResults.length, 'query variations)');
-    console.log('[RETRIEVAL] Top results (before re-ranking):');
-    retrievalResults.slice(0, 5).forEach((r, i) => {
-      console.log(`  ${i + 1}. "${r.metadata.title}" (similarity: ${(r.similarity * 100).toFixed(1)}%)`);
-      console.log(`     Preview: ${r.content.substring(0, 100)}...`);
-    });
-
-    // Re-rank based on keyword matching in titles
-    retrievalResults = rerankResults(question, retrievalResults);
-
-    console.log('[RERANK] After re-ranking:');
-    retrievalResults.slice(0, 5).forEach((r, i) => {
-      console.log(`  ${i + 1}. "${r.metadata.title}" (score: ${(r.similarity * 100).toFixed(1)}%)`);
-    });
-
-    // Extract re-ranked results
-    const relevantDocs = retrievalResults.map(r => r.content);
-    const distances = retrievalResults.map(r => 1 - r.similarity); // Convert back to distance for confidence calculation
-    const metadatas = retrievalResults.map(r => r.metadata);
+    // Extract relevant SOP content
+    const relevantDocs = results.documents[0];
+    const distances = results.distances?.[0] || [];
+    const metadatas = results.metadatas?.[0] || [];
 
     // Calculate confidence based on similarity (lower distance = higher confidence)
     // Convert distance to confidence (assuming cosine distance, 0 = identical, 1 = orthogonal)
@@ -601,7 +335,7 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       : 1;
     const confidence = Math.max(0, Math.min(1, 1 - avgDistance));
 
-    // Build context from re-ranked SOPs
+    // Build context from relevant SOPs
     const context = relevantDocs
       .map((doc, i) => {
         const metadata = metadatas[i] || {};
@@ -610,42 +344,14 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
       })
       .join('\n\n---\n\n');
 
-    console.log('[RETRIEVAL] Context length:', context.length, 'chars');
-    console.log('[RETRIEVAL] =====================================\n');
+    // Build RAG context with acronyms
+    const ragContext = await buildRAGContext(question);
+    const acronymContext = formatAcronymContext(ragContext.relevantAcronyms);
 
-    // Generate answer using LLM with context
-    const prompt = `You are a helpful assistant that answers questions about Standard Operating Procedures (SOPs).
+    // Build optimized prompt with Qwen tokens and grounding instructions
+    const prompt = buildPrompt(acronymContext || '', context, question);
 
-Context from SOP documents:
-${context}
-
-Question: ${question}
-
-Instructions:
-1. Carefully review ALL provided context sections, not just the first one
-2. Look for information that answers the question, even if the section title is different from the question
-3. For "How to" questions, provide clear step-by-step procedures
-4. If related information exists under a different heading (e.g., "check status" info might be under "Tracker"), still include it
-5. Connect acronyms to their meanings (MFU = Mutual Fund Unit, CAN = Consolidated Account Number)
-6. Be concise but complete
-7. Only say "not enough information" if you've thoroughly checked ALL context sections and found nothing relevant
-
-Answer:`;
-
-    const llmResult = await getLLMResponseWithConfidence(prompt);
-    const answer = llmResult.response;
-
-    console.log('[LLM] Response length:', answer.length, 'chars');
-
-    // Calculate LLM confidence (self-assessment + heuristics)
-    const llmConfidence = await calculateLLMConfidence(question, answer, context);
-
-    // Combine retrieval confidence with LLM confidence
-    // Weights are configurable via environment variables (default: 60% retrieval, 40% LLM)
-    const combinedConfidence = (confidence * RETRIEVAL_WEIGHT) + (llmConfidence * LLM_WEIGHT);
-
-    console.log('[LLM] Confidence:', (combinedConfidence * 100).toFixed(1) + '%');
-    console.log(`[DEBUG] Confidence breakdown - Retrieval: ${(confidence * 100).toFixed(1)}%, LLM: ${(llmConfidence * 100).toFixed(1)}%, Combined: ${(combinedConfidence * 100).toFixed(1)}%`);
+    const answer = await getLLMResponse(prompt);
 
     // Extract sources (titles from metadata)
     const sources = metadatas
@@ -655,7 +361,7 @@ Answer:`;
 
     return {
       answer,
-      confidence: combinedConfidence,
+      confidence,
       sources,
     };
   } catch (error) {
@@ -694,16 +400,11 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       // Collection might not exist, that's okay
     }
 
-    // Create new collection WITHOUT any embedding function
-    // We provide embeddings explicitly via Ollama, so no embedding function is needed
+    // Create new collection
     const collection = await client.createCollection({
       name: COLLECTION_NAME,
       metadata: { description: 'SOP documents for RAG' },
     });
-    
-    // Verify collection was created without embedding function
-    // All embeddings will be provided manually via Ollama
-    console.log('Created new ChromaDB collection (no embedding function - using manual embeddings)');
 
     console.log('Created new ChromaDB collection');
 
@@ -718,37 +419,27 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       allEntries.push(...fileEntries);
     } else {
       // Process default Excel file
-      const defaultExcelPath = '/Users/Swarup/Documents/SOP_AI_Chatbot/S4_-_SOPs_-_MF_Transactions.xlsx';
-      if (fs.existsSync(defaultExcelPath)) {
-        console.log(`Processing default Excel file: ${defaultExcelPath}`);
-        const fileEntries = await parseSOPFile(defaultExcelPath);
-        allEntries.push(...fileEntries);
+      const defaultExcelPath = findSOPExcelFile();
+      if (!defaultExcelPath) {
+        throw new Error('SOP Excel file not found. Please place S4_-_SOPs_-_MF_Transactions.xlsx in the data/ directory.');
       }
+      console.log(`Processing default Excel file: ${defaultExcelPath}`);
+      const fileEntries = await parseSOPFile(defaultExcelPath);
+      allEntries.push(...fileEntries);
     }
 
     // Process Word documents from template_sample folder
-    const templateSamplePath = '/Users/Swarup/Documents/SOP_AI_Chatbot/template_sample';
-    if (fs.existsSync(templateSamplePath)) {
+    const templateSamplePath = findTemplateDir();
+    if (templateSamplePath) {
       console.log(`Processing Word documents from: ${templateSamplePath}`);
       const dirEntries = await parseSOPDirectory(templateSamplePath);
       allEntries.push(...dirEntries);
+    } else {
+      console.warn('Template sample folder not found in any location');
     }
 
-    // Process uploaded files from uploads directory
-    const uploadsPath = path.join(process.cwd(), 'uploads');
-    if (fs.existsSync(uploadsPath)) {
-      console.log(`Processing uploaded files from: ${uploadsPath}`);
-      const uploadEntries = await parseSOPDirectory(uploadsPath);
-      allEntries.push(...uploadEntries);
-    }
-
-    // Apply chunking strategy to split large entries and add overlap
-    const { createChunksWithOverlap } = await import('../scripts/parse-sop');
-    const chunks = createChunksWithOverlap(allEntries);
-    console.log(`Parsed ${allEntries.length} total SOP entries, created ${chunks.length} chunks, generating embeddings...`);
-    
-    // Use chunks instead of entries for indexing
-    const entries = chunks;
+    const entries = allEntries;
+    console.log(`Parsed ${entries.length} total SOP entries, generating embeddings...`);
 
     // Process entries in batches to avoid overwhelming Ollama
     const batchSize = 10;
@@ -766,42 +457,22 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       const batchPromises = batch.map(async (entry, idx) => {
         const globalIdx = i + idx;
         try {
-          // Title already includes part number for multi-chunk entries (from chunking function)
-          const entryTitle = entry.title || 'Untitled';
-          
-          console.log(`[DEBUG] Processing chunk ${globalIdx + 1}/${entries.length}: ${entryTitle.substring(0, 50)}`);
-          
-          // Content already has title prepended by chunking function
-          const contentWithTitle = entry.content;
-          
-          const embedding = await getEmbedding(contentWithTitle);
-          console.log(`[DEBUG] Completed chunk ${globalIdx + 1}, embedding length: ${embedding.length}`);
-          
-          // Build metadata object, only including chunk info if it exists
-          // ChromaDB only accepts string, number, or boolean - not undefined or null
-          const metadata: Record<string, string | number | boolean> = {
-            title: entryTitle,
-            category: entry.category || 'General',
-            section: entry.section || '',
-            sourceFile: entry.sourceFile || entry.source || '',
-          };
-          
-          // Only add chunk info if it exists
-          if (entry.chunkIndex !== undefined) {
-            metadata.chunkIndex = entry.chunkIndex;
-          }
-          if (entry.totalChunks !== undefined) {
-            metadata.totalChunks = entry.totalChunks;
-          }
+          console.log(`[DEBUG] Processing entry ${globalIdx + 1}/${entries.length}: ${(entry.title || 'Untitled').substring(0, 50)}`);
+          const embedding = await getEmbedding(entry.content);
+          console.log(`[DEBUG] Completed entry ${globalIdx + 1}, embedding length: ${embedding.length}`);
           
           return {
             id: `sop-${globalIdx}`,
             embedding,
-            document: contentWithTitle, // Store content with title included
-            metadata,
+            document: entry.content,
+            metadata: {
+              title: entry.title || `SOP Entry ${globalIdx + 1}`,
+              category: entry.category || 'General',
+              section: entry.section || '',
+            },
           };
         } catch (error: any) {
-          console.error(`[ERROR] Failed to process chunk ${globalIdx + 1}:`, error.message);
+          console.error(`[ERROR] Failed to process entry ${globalIdx + 1}:`, error.message);
           throw error;
         }
       });
@@ -822,87 +493,225 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
       console.log(`[DEBUG] Batch ${batchNum} processed, moving to next batch`);
     }
 
-    // Add all documents to ChromaDB with explicit embeddings from Ollama
-    // We provide embeddings manually, so ChromaDB won't try to use any default embedding function
+    // Add all documents to ChromaDB
     await collection.add({
       ids: allIds,
-      embeddings: allEmbeddings, // Explicit embeddings from Ollama (nomic-embed-text)
+      embeddings: allEmbeddings,
       documents: allDocuments,
       metadatas: allMetadatas,
     });
 
-    console.log(`Successfully indexed ${entries.length} SOP chunks into ChromaDB`);
+    console.log(`Successfully indexed ${entries.length} SOP entries into ChromaDB`);
 
     // Track indexed SOPs in database
-    // Group chunks by source file (one entry per file, with total count)
-    const fileGroups = new Map<string, { categories: Set<string>; count: number }>();
+    // Group entries by source file and category
+    const sopGroups = new Map<string, { category: string; count: number }>();
     
     entries.forEach((entry) => {
-      const source = entry.sourceFile || entry.source || 'Unknown';
+      const source = entry.sourceFile || 'Unknown';
       const category = entry.category || 'General';
+      const key = `${source}::${category}`;
       
-      if (!fileGroups.has(source)) {
-        fileGroups.set(source, { categories: new Set(), count: 0 });
+      if (!sopGroups.has(key)) {
+        sopGroups.set(key, { category, count: 0 });
       }
-      const group = fileGroups.get(source)!;
-      group.categories.add(category);
-      group.count++;
+      sopGroups.get(key)!.count++;
     });
 
     // Clear existing indexed SOPs
     await db.delete(indexedSOPs);
 
-    // Insert new indexed SOPs - one row per source file
-    for (const [sourceFile, data] of fileGroups.entries()) {
-      // Use the first category or join if multiple
-      const categories = Array.from(data.categories);
-      const primaryCategory = categories.length > 0 ? categories[0] : 'General';
-      
+    // Insert new indexed SOPs
+    for (const [key, data] of sopGroups.entries()) {
+      const [sourceFile] = key.split('::');
       await db.insert(indexedSOPs).values({
         sourceFile,
-        category: primaryCategory,
+        category: data.category,
         entryCount: data.count,
         lastIndexed: new Date(),
       });
     }
 
-    console.log(`Tracked ${fileGroups.size} SOP sources in database`);
-
-    // Generate predefined questions for each source file
-    console.log('Generating predefined questions for documents...');
-    const { generatePredefinedQuestions, storePredefinedQuestions } = await import('./question-generator');
-    
-    // Group entries by source file for question generation
-    const entriesByFile = new Map<string, any[]>();
-    entries.forEach((entry) => {
-      const source = entry.sourceFile || 'Unknown';
-      if (!entriesByFile.has(source)) {
-        entriesByFile.set(source, []);
-      }
-      entriesByFile.get(source)!.push(entry);
-    });
-
-    // Generate questions for each file
-    for (const [sourceFile, fileEntries] of entriesByFile.entries()) {
-      try {
-        const fileGroup = fileGroups.get(sourceFile);
-        const category = fileGroup?.categories.values().next().value || undefined;
-        
-        console.log(`Generating questions for: ${sourceFile}`);
-        const questions = await generatePredefinedQuestions(sourceFile, fileEntries, category);
-        
-        if (questions.length > 0) {
-          await storePredefinedQuestions(sourceFile, questions, category);
-        }
-      } catch (error) {
-        console.error(`Error generating questions for ${sourceFile}:`, error);
-        // Continue with other files even if one fails
-      }
-    }
-
-    console.log('Predefined questions generation complete');
+    console.log(`Tracked ${sopGroups.size} SOP sources in database`);
   } catch (error) {
     console.error('Error rebuilding index:', error);
     throw error;
   }
+}
+
+export async function indexAcronyms(): Promise<number> {
+  try {
+    const { loadAcronyms } = await import('./acronyms');
+    
+    console.log('[INDEX] Loading acronyms from CSV...');
+    const acronyms = loadAcronyms();
+    
+    if (acronyms.length === 0) {
+      throw new Error('No acronyms found in CSV');
+    }
+    
+    console.log(`[INDEX] Found ${acronyms.length} acronyms`);
+    
+    const client = getChromaClient();
+    const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
+    
+    // Delete existing collection if it exists (to avoid embedding function mismatch)
+    const collections = await client.listCollections();
+    const existingCollection = collections.find(c => c.name === ACRONYM_COLLECTION_NAME);
+    
+    if (existingCollection) {
+      console.log(`[INDEX] Deleting existing collection "${ACRONYM_COLLECTION_NAME}" to recreate without embedding function...`);
+      try {
+        await client.deleteCollection({ name: ACRONYM_COLLECTION_NAME });
+      } catch (e) {
+        console.warn(`[INDEX] Error deleting collection: ${e}`);
+      }
+    }
+    
+    // Create new collection without embedding function (we provide embeddings manually)
+    console.log(`[INDEX] Creating collection "${ACRONYM_COLLECTION_NAME}"...`);
+    const collection = await client.createCollection({
+      name: ACRONYM_COLLECTION_NAME,
+      metadata: { description: 'Financial acronyms for RAG' },
+    });
+    
+    console.log('[INDEX] Generating embeddings and preparing documents...');
+    
+    const ids: string[] = [];
+    const embeddings: number[][] = [];
+    const documents: string[] = [];
+    const metadatas: Record<string, string | number | boolean>[] = [];
+    
+    for (let i = 0; i < acronyms.length; i++) {
+      const acronym = acronyms[i];
+      const document = `${acronym.abbreviation} stands for ${acronym.fullForm}. ${acronym.abbreviation} means ${acronym.fullForm}. Category: ${acronym.category}`;
+      
+      console.log(`[INDEX] Processing ${i + 1}/${acronyms.length}: ${acronym.abbreviation}`);
+      
+      const embedding = await getEmbedding(document);
+      
+      ids.push(`acronym_${i}`);
+      embeddings.push(embedding);
+      documents.push(document);
+      metadatas.push({
+        abbreviation: acronym.abbreviation,
+        fullForm: acronym.fullForm,
+        category: acronym.category,
+        type: 'acronym',
+      });
+    }
+    
+    console.log('[INDEX] Upserting to ChromaDB...');
+    await collection.upsert({
+      ids,
+      embeddings,
+      documents,
+      metadatas,
+    });
+    
+    console.log(`[INDEX] Successfully indexed ${acronyms.length} acronyms into ChromaDB`);
+    return acronyms.length;
+  } catch (error: any) {
+    console.error('[INDEX] Error indexing acronyms:', error.message);
+    throw error;
+  }
+}
+
+export async function getAcronymStats(): Promise<{ total: number; byCategory: Record<string, number>; lastIndexed: string | null }> {
+  try {
+    const client = getChromaClient();
+    const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
+    
+    const collections = await client.listCollections();
+    const collectionExists = collections.some(c => c.name === ACRONYM_COLLECTION_NAME);
+    
+    if (!collectionExists) {
+      return { total: 0, byCategory: {}, lastIndexed: null };
+    }
+    
+    const collection = await client.getCollection({ name: ACRONYM_COLLECTION_NAME });
+    const count = await collection.count();
+    
+    const results = await collection.get({ limit: count });
+    const metadatas = results.metadatas || [];
+    
+    const byCategory: Record<string, number> = {};
+    metadatas.forEach((meta: any) => {
+      const category = meta?.category || 'Uncategorized';
+      byCategory[category] = (byCategory[category] || 0) + 1;
+    });
+    
+    return {
+      total: count,
+      byCategory,
+      lastIndexed: null, // ChromaDB doesn't store timestamps, would need separate tracking
+    };
+  } catch (error: any) {
+    console.error('[STATS] Error getting acronym stats:', error.message);
+    throw error;
+  }
+}
+
+export interface AcronymResult {
+  abbreviation: string;
+  fullForm: string;
+  category: string;
+  score: number;
+}
+
+export async function queryAcronyms(query: string, nResults: number = 5): Promise<AcronymResult[]> {
+  try {
+    const client = getChromaClient();
+    const ACRONYM_COLLECTION_NAME = 'sop_acronyms';
+    
+    const collections = await client.listCollections();
+    const collectionExists = collections.some(c => c.name === ACRONYM_COLLECTION_NAME);
+    
+    if (!collectionExists) {
+      console.log('[ACRONYMS] Collection does not exist');
+      return [];
+    }
+    
+    const collection = await client.getCollection({ name: ACRONYM_COLLECTION_NAME });
+    const queryEmbedding = await getEmbedding(query);
+    
+    const results = await collection.query({
+      queryEmbeddings: [queryEmbedding],
+      nResults,
+    });
+    
+    if (!results.metadatas || results.metadatas[0].length === 0) {
+      return [];
+    }
+    
+    return results.metadatas[0].map((meta: any) => ({
+      abbreviation: String(meta.abbreviation || ''),
+      fullForm: String(meta.fullForm || ''),
+      category: String(meta.category || ''),
+      score: 1.0,
+    }));
+  } catch (error: any) {
+    console.error('[ACRONYMS] Query error:', error.message);
+    return [];
+  }
+}
+
+export function expandQuery(query: string): string[] {
+  return [query];
+}
+
+export function mergeQueryResults(results: any[], limit: number): { documents: string[]; metadatas: any[]; distances: number[] } {
+  if (results.length === 0) {
+    return { documents: [], metadatas: [], distances: [] };
+  }
+  const first = results[0];
+  return {
+    documents: first.documents?.[0]?.slice(0, limit) || [],
+    metadatas: first.metadatas?.[0]?.slice(0, limit) || [],
+    distances: first.distances?.[0]?.slice(0, limit) || [],
+  };
+}
+
+export function rerankResults(query: string, results: any[]): any[] {
+  return results;
 }
