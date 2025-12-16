@@ -1,0 +1,1028 @@
+[
+  {
+    "id": "mf-transactions-process-lumpsum",
+    "title": "MF Transactions Process - Lumpsum",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Ensure the client’s KYC is valid and updated.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Select a mutual fund scheme based on client goals & risk profile.",
+        "role": "Sunil Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Make sure bank is registered at transaction platform for Purchase.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Initiate the transaction via RTA (CAMS/KFintech), MFU, or NSE NMF II / BSE Star MF",
+        "role": "Back office team",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Lumpsum: Process via OTM, UPI, Net Banking, RTGS, NEFT",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Validate your Transaction via 2 factor Authentication Email & SMS",
+        "role": "RM/ Ops",
+        "tools": "NSE, BSE, MFU/ ND",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Confirm -  If the transaction is processed in T+2 days.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 8,
+        "task": "Communicate - Provide the transaction confirmation receipt to the client.",
+        "role": "Back office team",
+        "tools": "Email / WhatsApp.",
+        "template": ""
+      },
+      {
+        "order": 9,
+        "task": "Update internal records - Log the transaction in your database / software for future review and reporting.",
+        "role": "Back office team",
+        "tools": "",
+        "template": "MF Transaction Tracker"
+      }
+    ],
+    "content": "1. Ensure the client’s KYC is valid and updated. (Role: Back office team) [Tools: ]\n2. Select a mutual fund scheme based on client goals & risk profile. (Role: Sunil Chachlani) [Tools: ]\n3. Make sure bank is registered at transaction platform for Purchase. (Role: Back office team) [Tools: ]\n4. Initiate the transaction via RTA (CAMS/KFintech), MFU, or NSE NMF II / BSE Star MF (Role: Back office team) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n5. Lumpsum: Process via OTM, UPI, Net Banking, RTGS, NEFT (Role: Kiran Chachlani) [Tools: ]\n6. Validate your Transaction via 2 factor Authentication Email & SMS (Role: RM/ Ops) [Tools: NSE, BSE, MFU/ ND]\n7. Confirm -  If the transaction is processed in T+2 days. (Role: Back office team) [Tools: ]\n8. Communicate - Provide the transaction confirmation receipt to the client. (Role: Back office team) [Tools: Email / WhatsApp.]\n9. Update internal records - Log the transaction in your database / software for future review and reporting. (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "mf-transactions-process-sip",
+    "title": "MF Transactions Process - SIP",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Ensure the client’s KYC is valid and updated.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Select a mutual fund scheme based on client goals & risk profile.",
+        "role": "Sunil Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Create an e-NACH Mandate via RTA (CAMS/KFintech), MFU, or NSE NMF II / BSE Star MF",
+        "role": "Back office team",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Initiate the Transaction Request.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Make sure bank is registered at transaction platform for SIP.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "SIP: Process via an e-NACH Mandate or UPI mandate (KYC is Validated)",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Existing folio: If folio exists, register new SIP using e-NACH without opening a new folio.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 8,
+        "task": "Confirm -  If the transaction is processed in T+2 days.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 9,
+        "task": "Communicate - Provide the transaction confirmation receipt to the client.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 10,
+        "task": "Update internal records - Log the transaction in your database / software for future review and reporting.",
+        "role": "Back office team",
+        "tools": "",
+        "template": "MF Transaction Tracker"
+      }
+    ],
+    "content": "1. Ensure the client’s KYC is valid and updated. (Role: Back office team) [Tools: ]\n2. Select a mutual fund scheme based on client goals & risk profile. (Role: Sunil Chachlani) [Tools: ]\n3. Create an e-NACH Mandate via RTA (CAMS/KFintech), MFU, or NSE NMF II / BSE Star MF (Role: Back office team) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n4. Initiate the Transaction Request. (Role: Back office team) [Tools: ]\n5. Make sure bank is registered at transaction platform for SIP. (Role: Back office team) [Tools: ]\n6. SIP: Process via an e-NACH Mandate or UPI mandate (KYC is Validated) (Role: Back office team) [Tools: ]\n7. Existing folio: If folio exists, register new SIP using e-NACH without opening a new folio. (Role: Back office team) [Tools: ]\n8. Confirm -  If the transaction is processed in T+2 days. (Role: Back office team) [Tools: ]\n9. Communicate - Provide the transaction confirmation receipt to the client. (Role: Back office team) [Tools: ]\n10. Update internal records - Log the transaction in your database / software for future review and reporting. (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "mf-transactions-process-redemption",
+    "title": "MF Transactions Process - Redemption",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Get confirmation from the client for redemption amount and folio details.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Check the registered bank is active or not.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Choose wether you want withdraw ALL units/ No. of units / Specific Amount.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Verify the exit load applicability and assess capital gain tax implications before proceeding.",
+        "role": "Sunil Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Confirm the Bank Account Details with the Client before executing.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Place the request via RTA (CAMS/KFintech), MFU, or NSE/BSE platform.",
+        "role": "Kiran Chachlani",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Track redemption status and ensure fund house processes it as per schedule.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 8,
+        "task": "Ensure payout is credited to the registered bank account within T+2 days (equity) or T+1 day (liquid funds), T+5 (International)",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 9,
+        "task": "Confirm & Communicate - Provide the transaction confirmation receipt to the client.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 10,
+        "task": "Update internal records - Log the transaction in your database / software for future review and reporting.",
+        "role": "Back office team",
+        "tools": "",
+        "template": "MF Transaction Tracker"
+      }
+    ],
+    "content": "1. Get confirmation from the client for redemption amount and folio details. (Role: Kiran Chachlani) [Tools: ]\n2. Check the registered bank is active or not. (Role: Back office team) [Tools: ]\n3. Choose wether you want withdraw ALL units/ No. of units / Specific Amount. (Role: Kiran Chachlani) [Tools: ]\n4. Verify the exit load applicability and assess capital gain tax implications before proceeding. (Role: Sunil Chachlani) [Tools: ]\n5. Confirm the Bank Account Details with the Client before executing. (Role: Back office team) [Tools: ]\n6. Place the request via RTA (CAMS/KFintech), MFU, or NSE/BSE platform. (Role: Kiran Chachlani) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n7. Track redemption status and ensure fund house processes it as per schedule. (Role: Back office team) [Tools: ]\n8. Ensure payout is credited to the registered bank account within T+2 days (equity) or T+1 day (liquid funds), T+5 (International) (Role: Back office team) [Tools: ]\n9. Confirm & Communicate - Provide the transaction confirmation receipt to the client. (Role: Back office team) [Tools: ]\n10. Update internal records - Log the transaction in your database / software for future review and reporting. (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "mf-transactions-process-swp",
+    "title": "MF Transactions Process - SWP",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Get confirmation from the client for monthly redemption amount and folio details.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Place the request via RTA (CAMS/KFintech), MFU, or NSE/BSE platform.",
+        "role": "Kiran Chachlani",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Confirm Bank account before starting SWP",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Track redemption status and ensure fund house processes it as per schedule.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Confirm & Communicate - Provide the transaction confirmation receipt to the client.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Review SWP units pending when nearing completion",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "1. Get confirmation from the client for monthly redemption amount and folio details. (Role: Back office team) [Tools: ]\n2. Place the request via RTA (CAMS/KFintech), MFU, or NSE/BSE platform. (Role: Kiran Chachlani) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n3. Confirm Bank account before starting SWP (Role: Back office team) [Tools: ]\n4. Track redemption status and ensure fund house processes it as per schedule. (Role: Back office team) [Tools: ]\n5. Confirm & Communicate - Provide the transaction confirmation receipt to the client. (Role: Back office team) [Tools: ]\n6. Review SWP units pending when nearing completion (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "mf-transaction-process-switch",
+    "title": "MF Transaction Process - Switch",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Collect confirmation from the client for the switch transaction.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Choose wether you want to transfer Full Portfolio / Specific Amount.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Execute switch requests through MFU/NSE/BSE or AMC portal.",
+        "role": "Back office team",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Once switch is processed, ensure the amount is allocated to the target scheme with updated folio/unit details.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Send a transaction summary to the client including date, amount, and new fund units allocated.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Update internal records - Log the transaction in your database / software for future review and reporting.",
+        "role": "Back office team",
+        "tools": "",
+        "template": "MF Transaction Tracker"
+      }
+    ],
+    "content": "1. Collect confirmation from the client for the switch transaction. (Role: Back office team) [Tools: ]\n2. Choose wether you want to transfer Full Portfolio / Specific Amount. (Role: Kiran Chachlani) [Tools: ]\n3. Execute switch requests through MFU/NSE/BSE or AMC portal. (Role: Back office team) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n4. Once switch is processed, ensure the amount is allocated to the target scheme with updated folio/unit details. (Role: Kiran Chachlani) [Tools: ]\n5. Send a transaction summary to the client including date, amount, and new fund units allocated. (Role: Back office team) [Tools: ]\n6. Update internal records - Log the transaction in your database / software for future review and reporting. (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "mf-transaction-process-stp",
+    "title": "MF Transaction Process - STP",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Collect confirmation from the client for the STP transaction.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Execute STP requests through MFU/NSE/BSE or AMC portal.",
+        "role": "Back office team",
+        "tools": "CAMS / Kary \r\nMFU/BSE/NSE",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Once redemption is processed, ensure the amount is allocated to the target scheme with updated folio/unit details.",
+        "role": "Kiran Chachlani",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Send a transaction summary to the client including date, amount, and new fund units allocated.",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Update internal records - Log the transaction in your database / software for future review and reporting.",
+        "role": "Back office team",
+        "tools": "",
+        "template": "MF Transaction Tracker"
+      },
+      {
+        "order": 6,
+        "task": "Review STP units pending when nearing completion",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "1. Collect confirmation from the client for the STP transaction. (Role: Kiran Chachlani) [Tools: ]\n2. Execute STP requests through MFU/NSE/BSE or AMC portal. (Role: Back office team) [Tools: CAMS / Kary \r\nMFU/BSE/NSE]\n3. Once redemption is processed, ensure the amount is allocated to the target scheme with updated folio/unit details. (Role: Kiran Chachlani) [Tools: ]\n4. Send a transaction summary to the client including date, amount, and new fund units allocated. (Role: Back office team) [Tools: ]\n5. Update internal records - Log the transaction in your database / software for future review and reporting. (Role: Back office team) [Tools: ]\n6. Review STP units pending when nearing completion (Role: Back office team) [Tools: ]"
+  },
+  {
+    "id": "non-financial-transactions",
+    "title": "Non Financial Transactions",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [],
+    "content": ""
+  },
+  {
+    "id": "change-of-bank-details-update-bank-account-linked-to-mf-investments",
+    "title": "Change of Bank Details – Update bank account linked to MF investments.",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Collect cancelled cheque (with pre-printed name) and latest 3-month bank statement or passbook copy.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Fill the bank change request form from CAMS/KFintech.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Check the details with the client and get their signature / or validate via online OTP.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Submit the form online via Portal or Offline at your nearest RTA Branch.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Obtain and retain the acknowledgment receipt.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Track the Status and Update the Client once done.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Collect cancelled cheque (with pre-printed name) and latest 3-month bank statement or passbook copy. (Role: ) [Tools: ]\n2. Fill the bank change request form from CAMS/KFintech. (Role: ) [Tools: ]\n3. Check the details with the client and get their signature / or validate via online OTP. (Role: ) [Tools: ]\n4. Submit the form online via Portal or Offline at your nearest RTA Branch. (Role: ) [Tools: ]\n5. Obtain and retain the acknowledgment receipt. (Role: ) [Tools: ]\n6. Track the Status and Update the Client once done. (Role: ) [Tools: ]\n7. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "change-of-address-fatca-or-tax-status",
+    "title": "Change of Address, FATCA or Tax Status.",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Any update in address, FATCA, or tax status must be routed through the KYC modification process.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Collect required documents based on the type of change.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Fill the latest KYC Modification Form online via CAMS/Karvy Portal.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Submit the Form along with the Documents.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Check status on the respective KRA portal, once approved, changes will auto-reflect across all mutual fund folios.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Any update in address, FATCA, or tax status must be routed through the KYC modification process. (Role: ) [Tools: ]\n2. Collect required documents based on the type of change. (Role: ) [Tools: ]\n3. Fill the latest KYC Modification Form online via CAMS/Karvy Portal. (Role: ) [Tools: ]\n4. Submit the Form along with the Documents. (Role: ) [Tools: ]\n5. Check status on the respective KRA portal, once approved, changes will auto-reflect across all mutual fund folios. (Role: ) [Tools: ]\n6. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "contact-details-update-modify-mobile-number-email-id-or-correspondence-details",
+    "title": "Contact Details Update – Modify mobile number, email ID, or correspondence details.",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Update email ID and mobile number across folios online / offline.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Submit the request online through - MF Central / CAMS / Karvy.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Attach an PAN Card Copy & validate through OTP.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Confirm contact update via email/SMS received.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Update email ID and mobile number across folios online / offline. (Role: ) [Tools: ]\n2. Submit the request online through - MF Central / CAMS / Karvy. (Role: ) [Tools: ]\n3. Attach an PAN Card Copy & validate through OTP. (Role: ) [Tools: ]\n4. Confirm contact update via email/SMS received. (Role: ) [Tools: ]\n5. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "change-of-name-pan-aadhar-upate",
+    "title": "Change of Name / PAN Aadhar Upate",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Request Change of Name letter signed by the Client.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "For correction of name, for individual investors, Affidavit from the Client on stamp paper of value Rs.100/-",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Attach self-attested New PAN Copy & KYC / FATCA & CRS with new Name",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "In case of Marriage - Attach Self-Attested Marriage Certificate Photocopy - Notarized",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Sumit the request to AMCs / KRAs.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Check status on the respective KRA/AMCs portal, once approved, changes will auto-reflect across all mutual fund folios.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Request Change of Name letter signed by the Client. (Role: ) [Tools: ]\n2. For correction of name, for individual investors, Affidavit from the Client on stamp paper of value Rs.100/- (Role: ) [Tools: ]\n3. Attach self-attested New PAN Copy & KYC / FATCA & CRS with new Name (Role: ) [Tools: ]\n4. In case of Marriage - Attach Self-Attested Marriage Certificate Photocopy - Notarized (Role: ) [Tools: ]\n5. Sumit the request to AMCs / KRAs. (Role: ) [Tools: ]\n6. Check status on the respective KRA/AMCs portal, once approved, changes will auto-reflect across all mutual fund folios. (Role: ) [Tools: ]\n7. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "change-updation-addition-of-nominee",
+    "title": "Change / Updation / Addition of Nominee",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Check Existing Nomination Status - Download the client’s CAS via MF Central, Review each folio to identify where nomination is missing or outdated.",
+        "role": "",
+        "tools": "MF Central / RTAs",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Choose Nomination Mode:\r\nOnline (Recommended): Use MF Central, CAMS/KFintech portal, or AMC portal for e-nomination.\r\nOffline: Use the standard Nomination Form (Might differ for each AMCs)",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Collect Required Details & Documents (Self Attested PAN & Id Proof)",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Submit Nomination Request: Online (via Aadhar e signr) Offline (Submit to AMCs / RTAs)",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Acknowledgment is received via SMS/email post acceptance.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Nominee details get auto-updated across folios (if PAN-linked).",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Check Existing Nomination Status - Download the client’s CAS via MF Central, Review each folio to identify where nomination is missing or outdated. (Role: ) [Tools: MF Central / RTAs]\n2. Choose Nomination Mode:\r\nOnline (Recommended): Use MF Central, CAMS/KFintech portal, or AMC portal for e-nomination.\r\nOffline: Use the standard Nomination Form (Might differ for each AMCs) (Role: ) [Tools: ]\n3. Collect Required Details & Documents (Self Attested PAN & Id Proof) (Role: ) [Tools: ]\n4. Submit Nomination Request: Online (via Aadhar e signr) Offline (Submit to AMCs / RTAs) (Role: ) [Tools: ]\n5. Acknowledgment is received via SMS/email post acceptance. (Role: ) [Tools: ]\n6. Nominee details get auto-updated across folios (if PAN-linked). (Role: ) [Tools: ]\n7. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "minor-to-major",
+    "title": "Minor to Major",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Fill the MAM AMFI Designated Request Form.",
+        "role": "",
+        "tools": "Click here",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Attach New and Old Bank Cancelled cheque with applicant’s name pre-printed.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Attach a PAN CARD & KYC Acknowledgment OR form of applicant.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Submit offline via AMC or RTA branch near you.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Check status with the respective RTA/AMCs.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Update internal records - Log the request in your database / software as completed.",
+        "role": "",
+        "tools": "",
+        "template": "Non-Financial Transaction Tracker"
+      }
+    ],
+    "content": "1. Fill the MAM AMFI Designated Request Form. (Role: ) [Tools: Click here]\n2. Attach New and Old Bank Cancelled cheque with applicant’s name pre-printed. (Role: ) [Tools: ]\n3. Attach a PAN CARD & KYC Acknowledgment OR form of applicant. (Role: ) [Tools: ]\n4. Submit offline via AMC or RTA branch near you. (Role: ) [Tools: ]\n5. Check status with the respective RTA/AMCs. (Role: ) [Tools: ]\n7. Update internal records - Log the request in your database / software as completed. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "transmission-after-death-of-unit-holder",
+    "title": "Transmission after Death of Unit Holder",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Fetch & Fill out the T3 Form from AMFI's Website. (Check Annexure B for Documents required for each case)",
+        "role": "",
+        "tools": "Click here",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Attach the Death Certificate of deceased Unit Holder.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Attach KYC of the Claimant/Guardian.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Attach Cancelled cheque leaf with name and bank account number pre-printed (OR) Copy of bank statement attested by a Notary Public or a Gazetted Officer or Bank Manager.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "Additional proof of the deceased proof attested by the claimant: Redacted Aadhaar / PAN etc",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "Copy of PAN Card of the Nominee(s)/Guardian (in case the Nominee is a minor)",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Nomination/opt Out Form by the claimant.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 8,
+        "task": "Check for PAN Aadhaar linkage status of the Nominee",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 9,
+        "task": "Signature Attestation Requirement:\r\nFor transmission value up to ₹5 lakhs, claimant/guardian’s signature must be attested by a Bank Manager (Annexure I-A).\r\nFor value above ₹5 lakhs (PAN level), attestation must be done by a Notary Public or Judicial Magistrate First Class (T3 Form).",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 10,
+        "task": "Coyright Network FP | Only QPFP® Certificants & NFP ProMember® are licensed to use this Resource / ProTool.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "1. Fetch & Fill out the T3 Form from AMFI's Website. (Check Annexure B for Documents required for each case) (Role: ) [Tools: Click here]\n2. Attach the Death Certificate of deceased Unit Holder. (Role: ) [Tools: ]\n3. Attach KYC of the Claimant/Guardian. (Role: ) [Tools: ]\n4. Attach Cancelled cheque leaf with name and bank account number pre-printed (OR) Copy of bank statement attested by a Notary Public or a Gazetted Officer or Bank Manager. (Role: ) [Tools: ]\n5. Additional proof of the deceased proof attested by the claimant: Redacted Aadhaar / PAN etc (Role: ) [Tools: ]\n6. Copy of PAN Card of the Nominee(s)/Guardian (in case the Nominee is a minor) (Role: ) [Tools: ]\n7. Nomination/opt Out Form by the claimant. (Role: ) [Tools: ]\n8. Check for PAN Aadhaar linkage status of the Nominee (Role: ) [Tools: ]\n9. Signature Attestation Requirement:\r\nFor transmission value up to ₹5 lakhs, claimant/guardian’s signature must be attested by a Bank Manager (Annexure I-A).\r\nFor value above ₹5 lakhs (PAN level), attestation must be done by a Notary Public or Judicial Magistrate First Class (T3 Form). (Role: ) [Tools: ]\n10. Coyright Network FP | Only QPFP® Certificants & NFP ProMember® are licensed to use this Resource / ProTool. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "zero-folio-creation",
+    "title": "Zero Folio Creation",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Fill the application form and attach supporting documents (KYC, PAN, proof of address, etc.)",
+        "role": "Back office team",
+        "tools": "-",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Send scanned copy of filled form + documents to ifsc.investor@dspim.com",
+        "role": "Back office team",
+        "tools": "Mail",
+        "template": "Keep the copies in Client Folder"
+      },
+      {
+        "order": 3,
+        "task": "Track CAMS for application review (TAT 2-3 days)",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "Courier physical copy of duly filled application + docs after folio creation",
+        "role": "Back office team",
+        "tools": "Courier service",
+        "template": "Address: DSP Fund Managers IFSC Pvt. Ltd., 508–509, 5th Floor, Pragya 2, GIFT SEZ, Gift City, Gandhinagar, Gujarat–382050"
+      }
+    ],
+    "content": "1. Fill the application form and attach supporting documents (KYC, PAN, proof of address, etc.) (Role: Back office team) [Tools: -]\n2. Send scanned copy of filled form + documents to ifsc.investor@dspim.com (Role: Back office team) [Tools: Mail]\n3. Track CAMS for application review (TAT 2-3 days) (Role: Back office team) [Tools: ]\n4. Courier physical copy of duly filled application + docs after folio creation (Role: Back office team) [Tools: Courier service]"
+  },
+  {
+    "id": "transfer-of-funds-remittance-for-client",
+    "title": "Transfer of funds/Remittance (For Client)",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Verify mode of transfer: Digital (Bank app) / Physical branch with Client",
+        "role": "Back office team",
+        "tools": "WhatsApp",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "For Digital: Use bank’s outward USD remittance feature",
+        "role": "Client",
+        "tools": "",
+        "template": "Share Bank Account details mentioned on Pg 2 of Application Form"
+      },
+      {
+        "order": 3,
+        "task": "For Branch: Select authorized dealer bank and remit funds",
+        "role": "Client",
+        "tools": "RBI authorized dealer list",
+        "template": "https://www.rbi.org.in/scripts/category.aspx"
+      },
+      {
+        "order": 4,
+        "task": "Email proof of remittance to ifsc.investor@dspim.com",
+        "role": "Back office team",
+        "tools": "Email",
+        "template": "Attach payment acknowledgement"
+      }
+    ],
+    "content": "1. Verify mode of transfer: Digital (Bank app) / Physical branch with Client (Role: Back office team) [Tools: WhatsApp]\n2. For Digital: Use bank’s outward USD remittance feature (Role: Client) [Tools: ]\n3. For Branch: Select authorized dealer bank and remit funds (Role: Client) [Tools: RBI authorized dealer list]\n4. Email proof of remittance to ifsc.investor@dspim.com (Role: Back office team) [Tools: Email]"
+  },
+  {
+    "id": "ckyc-kin-requirement",
+    "title": "CKYC/KIN Requirement",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "Check KYC for KIN",
+        "role": "Back office team",
+        "tools": "CKYC website",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "If KIN exists, proceed with zero folio creation",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "If KIN not available, submit CKYC form with docs",
+        "role": "Back office team",
+        "tools": "CKYC form",
+        "template": ""
+      }
+    ],
+    "content": "1. Check KYC for KIN (Role: Back office team) [Tools: CKYC website]\n2. If KIN exists, proceed with zero folio creation (Role: Back office team) [Tools: ]\n3. If KIN not available, submit CKYC form with docs (Role: Back office team) [Tools: CKYC form]"
+  },
+  {
+    "id": "document-checklist",
+    "title": "Document Checklist",
+    "category": "MF Transaction Process",
+    "sourceFile": "S4_-_SOPs_-_MF_Transactions.xlsx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "PAN copy received",
+        "role": "Back office team",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 2,
+        "task": "Address proof received",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 3,
+        "task": "Bank proof received",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 4,
+        "task": "CKYC verified / CKYC form filled",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 5,
+        "task": "For Minor: Docs collected & attested",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 6,
+        "task": "For NRI: Docs collected, notarized, POA if required",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 7,
+        "task": "Zero Folio form completed",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 8,
+        "task": "CRS/FATCA form filled if needed",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 9,
+        "task": "Docs scanned & emailed",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 10,
+        "task": "Folio created & updated in CRM",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 11,
+        "task": "Client updated with folio details",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 12,
+        "task": "Proof of remittance filed",
+        "role": "",
+        "tools": "",
+        "template": ""
+      },
+      {
+        "order": 13,
+        "task": "Coyright Network FP | Only QPFP® Certificants & NFP ProMember® are licensed to use this Resource / ProTool.",
+        "role": "",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "1. PAN copy received (Role: Back office team) [Tools: ]\n2. Address proof received (Role: ) [Tools: ]\n3. Bank proof received (Role: ) [Tools: ]\n4. CKYC verified / CKYC form filled (Role: ) [Tools: ]\n5. For Minor: Docs collected & attested (Role: ) [Tools: ]\n6. For NRI: Docs collected, notarized, POA if required (Role: ) [Tools: ]\n7. Zero Folio form completed (Role: ) [Tools: ]\n8. CRS/FATCA form filled if needed (Role: ) [Tools: ]\n9. Docs scanned & emailed (Role: ) [Tools: ]\n10. Folio created & updated in CRM (Role: ) [Tools: ]\n11. Client updated with folio details (Role: ) [Tools: ]\n12. Proof of remittance filed (Role: ) [Tools: ]\n13. Coyright Network FP | Only QPFP® Certificants & NFP ProMember® are licensed to use this Resource / ProTool. (Role: ) [Tools: ]"
+  },
+  {
+    "id": "how-to-change-bank-details-in-can-docx",
+    "title": "How to change bank details in CAN",
+    "category": "General",
+    "sourceFile": "How to change bank details in CAN.docx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "For Change/Addition/Deletion Bank details in CAN \n\nGo to Multiple NCT-Mandate-Fillable form (Path: C:\\LMW Backoffice\\OneDrive - Let Money Work\\LMW Back Office\\My Documents\\mutual fund\\All Application Forms\\Download\\MFU)\n\n\n\nFill up the form as per requires of changes\n\n\n\nInformation Required:\n\nNew Bank Account Number\n\nNew Bank Account Type\n\nNew Bank IFSC\n\nNew Bank MICR\n\n\n\nSelf-Attested Cheque copy of the new bank is required.  If we have customer’s signature, then manage it through Edit option PDF\n\n\n\nTake color printout of form & cheque if we don’t have copy of cancelled cheque.\n\n\n\nSubmit in CAMS office.\n\n\n\nHow to Check status in MFU\n\nGo to Tracker\n\nGo to CAN Tracker\n\nSearch via date or CAN number and check registration status.\n\n\n\n\n\n\n\n",
+        "role": "Unknown",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "For Change/Addition/Deletion Bank details in CAN \n\nGo to Multiple NCT-Mandate-Fillable form (Path: C:\\LMW Backoffice\\OneDrive - Let Money Work\\LMW Back Office\\My Documents\\mutual fund\\All Application Forms\\Download\\MFU)\n\n\n\nFill up the form as per requires of changes\n\n\n\nInformation Required:\n\nNew Bank Account Number\n\nNew Bank Account Type\n\nNew Bank IFSC\n\nNew Bank MICR\n\n\n\nSelf-Attested Cheque copy of the new bank is required.  If we have customer’s signature, then manage it through Edit option PDF\n\n\n\nTake color printout of form & cheque if we don’t have copy of cancelled cheque.\n\n\n\nSubmit in CAMS office.\n\n\n\nHow to Check status in MFU\n\nGo to Tracker\n\nGo to CAN Tracker\n\nSearch via date or CAN number and check registration status.\n\n\n\n\n\n\n\n"
+  },
+  {
+    "id": "how-to-process-sip-order-with-fot-docx",
+    "title": "How to process SIP order with FOT",
+    "category": "General",
+    "sourceFile": "How to process SIP order with FOT.docx",
+    "steps": [
+      {
+        "order": 1,
+        "task": "How to place SIP order with FOT\n\n\n\nLogin MFU\n\nGo to CAN tracker\n\nSearch CAN as per name & browse\n\nAs the line of customer name in that Options select last one option (TransactEezz) SIP option and continue.\n\n\n\nIn transaction details\n\nSelect AMC name\n\nFolio Number (select existing or new folio as require)\n\nEnter the scheme name\n\nFrequency – Monthly\n\nInstalment Day/Date – Select the date (which is deduction dates)\n\nSelect Start month & year & End date is one month before end date of mandate\n\nEnter amount\n\n\n\nIf SIP is started with FOT-First order today, then use \n\nIn Payment details, Tick on Current dated payment,\n\nSelect payment type (Mode of payment)\n\nSelect Source of Account No is Bank Account & Press TAB\n\nThen automatic reflected amount to transfer\n\nEnter Remark & Submit order.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+        "role": "Unknown",
+        "tools": "",
+        "template": ""
+      }
+    ],
+    "content": "How to place SIP order with FOT\n\n\n\nLogin MFU\n\nGo to CAN tracker\n\nSearch CAN as per name & browse\n\nAs the line of customer name in that Options select last one option (TransactEezz) SIP option and continue.\n\n\n\nIn transaction details\n\nSelect AMC name\n\nFolio Number (select existing or new folio as require)\n\nEnter the scheme name\n\nFrequency – Monthly\n\nInstalment Day/Date – Select the date (which is deduction dates)\n\nSelect Start month & year & End date is one month before end date of mandate\n\nEnter amount\n\n\n\nIf SIP is started with FOT-First order today, then use \n\nIn Payment details, Tick on Current dated payment,\n\nSelect payment type (Mode of payment)\n\nSelect Source of Account No is Bank Account & Press TAB\n\nThen automatic reflected amount to transfer\n\nEnter Remark & Submit order.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  }
+]

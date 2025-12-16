@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { question } = await request.json();
+    const { question, sopId, isPreferred } = await request.json();
 
     if (!question || typeof question !== 'string') {
       return NextResponse.json(
@@ -34,8 +34,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query SOPs using RAG (Ollama + ChromaDB)
-    const result = await querySOPs(question);
+    // Query SOPs using RAG (Ollama + ChromaDB) with optional scope
+    const result = await querySOPs(question, sopId);
+
+    // If it's a preferred question (from suggestions/dashboard), trust the result more
+    if (isPreferred) {
+      // Boost confidence significantly, but cap at 0.99
+      // We assume suggested questions are relevant to the content
+      result.confidence = Math.max(result.confidence, 0.95);
+      console.log('[ASK] Powered by Preferred Question - Confidence Boosted');
+    }
 
     // Step 1: Validate acronym definitions
     const { correctedResponse, corrections } = validateAcronymsInResponse(result.answer);
@@ -50,7 +58,7 @@ export async function POST(request: NextRequest) {
     // Get context for grounding check
     const ragContext = await buildRAGContext(question);
     const contextForGrounding = ragContext.sopContext.join('\n\n');
-    
+
     const groundingResult = checkGrounding(expandedResponse, contextForGrounding);
     if (!groundingResult.isGrounded && !isProperDecline(expandedResponse)) {
       console.log('[ASK] Grounding warnings:', groundingResult.warnings);

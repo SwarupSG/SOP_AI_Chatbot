@@ -1,339 +1,190 @@
+
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
 
-export interface SOPEntry {
-  title?: string;
-  content: string;
-  category?: string;
-  section?: string;
-  sourceFile?: string;
-  [key: string]: any;
+export interface SOPStep {
+  order: number;
+  task: string;
+  role: string;
+  tools: string;
+  template: string;
 }
 
-export function parseSOPExcel(filePath: string): SOPEntry[] {
+export interface SOPDocument {
+  id: string;
+  title: string;
+  category: string;
+  sourceFile: string;
+  steps: SOPStep[];
+  content: string; // Flattened content for vector search linkage
+}
+
+// Convert "I", "A", "1" columns to semantics
+function cleanStr(val: any): string {
+  return String(val || '').trim();
+}
+
+export function parseSOPExcel(filePath: string): SOPDocument[] {
   console.log(`Reading Excel file: ${filePath}`);
-  
+
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`);
   }
 
-  // Read file as buffer first (works in Next.js API routes)
   const fileBuffer = fs.readFileSync(filePath);
   const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-  const entries: SOPEntry[] = [];
+  const documents: SOPDocument[] = [];
+  const fileName = path.basename(filePath);
 
-  // Process each sheet
   workbook.SheetNames.forEach((sheetName) => {
     console.log(`Processing sheet: ${sheetName}`);
     const worksheet = workbook.Sheets[sheetName];
-    
-    // Read as array of arrays to better handle structure
-    const rawData = XLSX.utils.sheet_to_json(worksheet, { 
-      raw: false,
-      defval: '',
-      header: 1 
-    }) as any[][];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-    // Find header row (usually row 2 or 3)
+    let currentCategory = sheetName; // Default category
+    let currentSOP: SOPDocument | null = null;
+
+    // Find header row index to identify columns
     let headerRowIndex = -1;
-    let headers: string[] = [];
-    
-    for (let i = 0; i < Math.min(5, rawData.length); i++) {
-      const row = rawData[i];
-      if (row && row.some((cell: any) => 
-        typeof cell === 'string' && 
-        (cell.toLowerCase().includes('task') || cell.toLowerCase().includes('who') || cell.toLowerCase().includes('tool'))
-      )) {
+    let colMap = { sn: -1, task: -1, who: -1, tool: -1, template: -1 };
+
+    for (let i = 0; i < Math.min(10, rows.length); i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const rowStr = row.map(c => cleanStr(c).toLowerCase());
+
+      if (rowStr.some(c => c.includes('tasks') || c.includes('what'))) {
         headerRowIndex = i;
-        headers = row.map((cell: any) => String(cell || '').trim());
+        rowStr.forEach((cell, idx) => {
+          if (cell.includes('s n') || cell === 'sn') colMap.sn = idx;
+          if (cell.includes('task') || cell.includes('what')) colMap.task = idx;
+          if (cell.includes('who')) colMap.who = idx;
+          if (cell.includes('tool')) colMap.tool = idx;
+          if (cell.includes('template') || cell.includes('nfp')) colMap.template = idx;
+        });
         break;
       }
     }
 
     if (headerRowIndex === -1) {
-      console.warn(`Could not find header row in sheet ${sheetName}, skipping`);
+      console.warn(`Could not find headers in sheet ${sheetName}`);
       return;
     }
 
-    // Process data rows
-    for (let i = headerRowIndex + 1; i < rawData.length; i++) {
-      const row = rawData[i];
-      if (!row || row.every((cell: any) => !cell || String(cell).trim() === '')) {
-        continue; // Skip empty rows
+    for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      const snVal = cleanStr(row[colMap.sn]);
+      const taskVal = cleanStr(row[colMap.task]);
+
+      // Logic to detect type
+      // Type I: Category Header (e.g. "MF Transaction Process")
+      if (snVal === 'I') {
+        currentCategory = taskVal || currentCategory;
+        currentSOP = null; // Reset current SOP
+        continue;
       }
 
-      const entry: SOPEntry = {
-        content: '',
-        category: sheetName,
-      };
+      // Type A: SOP Title (e.g. "MF Transactions Process - Lumpsum")
+      if (snVal === 'A' || (snVal && isNaN(Number(snVal)) && taskVal)) {
+        // New SOP
+        const title = taskVal;
+        // Generate clean ID
+        const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-      const contentParts: string[] = [];
-      let task = '';
-      let who = '';
-      let tools = '';
-      let template = '';
-      let sn = '';
+        const newDoc: SOPDocument = {
+          id,
+          title,
+          category: currentCategory,
+          sourceFile: fileName,
+          steps: [],
+          content: '' // Will fill later
+        };
+        documents.push(newDoc);
+        currentSOP = newDoc;
+        continue;
+      }
 
-      // Map columns based on headers
-      headers.forEach((header, colIndex) => {
-        const value = row[colIndex] ? String(row[colIndex]).trim() : '';
-        if (!value) return;
-
-        const headerLower = header.toLowerCase();
-        
-        if (headerLower.includes('s n') || headerLower.includes('sn')) {
-          sn = value;
-        } else if (headerLower.includes('task') || headerLower.includes('what')) {
-          task = value;
-          entry.title = value;
-        } else if (headerLower.includes('who')) {
-          who = value;
-        } else if (headerLower.includes('tool')) {
-          tools = value;
-        } else if (headerLower.includes('template') || headerLower.includes('note')) {
-          template = value;
+      // Type Number: Step (e.g. "1", "2")
+      // Also capture purely empty SN if looks like a step continuation? 
+      // For safety, assume if it has a number OR currentSOP exists and task is present
+      const stepNum = parseInt(snVal);
+      if (currentSOP && (!isNaN(stepNum) || (taskVal && !snVal))) {
+        if (taskVal) {
+          currentSOP.steps.push({
+            order: isNaN(stepNum) ? currentSOP.steps.length + 1 : stepNum,
+            task: taskVal,
+            role: cleanStr(row[colMap.who]),
+            tools: cleanStr(row[colMap.tool]),
+            template: cleanStr(row[colMap.template])
+          });
         }
-      });
-
-      // Build structured content
-      if (task) {
-        contentParts.push(`Task: ${task}`);
-      }
-      if (who) {
-        contentParts.push(`Responsible: ${who}`);
-      }
-      if (tools) {
-        contentParts.push(`Tools: ${tools}`);
-      }
-      if (template) {
-        contentParts.push(`Template/Notes: ${template}`);
-      }
-      if (sn) {
-        entry.section = sn;
-      }
-
-      entry.content = contentParts.join('\n');
-
-      // Only add if there's meaningful content (at least a task)
-      if (task && entry.content.trim()) {
-        entries.push(entry);
       }
     }
+
+    // Finalize content strings
+    documents.forEach(doc => {
+      doc.content = doc.steps.map(s =>
+        `${s.order}. ${s.task} (Role: ${s.role}) [Tools: ${s.tools}]`
+      ).join('\n');
+    });
   });
 
-  console.log(`Parsed ${entries.length} SOP entries from ${workbook.SheetNames.length} sheet(s)`);
-  return entries;
+  return documents;
 }
 
-export async function parseSOPWord(filePath: string): Promise<SOPEntry[]> {
+export async function parseSOPWord(filePath: string): Promise<SOPDocument[]> {
   console.log(`Reading Word document: ${filePath}`);
-  
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
-  }
+  const fileBuffer = fs.readFileSync(filePath);
+  const result = await mammoth.extractRawText({ buffer: fileBuffer });
+  const text = result.value;
+  const fileName = path.basename(filePath);
 
-  try {
-    // Extract text from Word document
-    // Read file as buffer first (works in Next.js API routes)
-    const fileBuffer = fs.readFileSync(filePath);
-    const result = await mammoth.extractRawText({ buffer: fileBuffer });
-    const text = result.value;
-    
-    // Extract HTML for better structure (optional, can use for more advanced parsing)
-    const htmlResult = await mammoth.convertToHtml({ buffer: fileBuffer });
-    
-    const entries: SOPEntry[] = [];
-    const fileName = path.basename(filePath, path.extname(filePath));
-    
-    // Split document into sections (by headings or paragraphs)
-    // For now, we'll create entries based on paragraphs or sections
-    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-    
-    // Try to identify headings (lines that are short and might be titles)
-    let currentTitle = fileName;
-    let currentContent: string[] = [];
-    
-    paragraphs.forEach((para, index) => {
-      const trimmed = para.trim();
-      
-      // Heuristic: if paragraph is short (< 100 chars) and ends without period, it might be a heading
-      if (trimmed.length < 100 && !trimmed.endsWith('.') && !trimmed.endsWith('!') && !trimmed.endsWith('?')) {
-        // Save previous section if it has content
-        if (currentContent.length > 0) {
-          entries.push({
-            title: currentTitle,
-            content: currentContent.join('\n\n'),
-            category: fileName,
-            sourceFile: filePath,
-          });
-        }
-        // Start new section
-        currentTitle = trimmed;
-        currentContent = [];
-      } else {
-        currentContent.push(trimmed);
-      }
-    });
-    
-    // Add the last section
-    if (currentContent.length > 0) {
-      entries.push({
-        title: currentTitle,
-        content: currentContent.join('\n\n'),
-        category: fileName,
-        sourceFile: filePath,
-      });
-    }
-    
-    // If no sections were created, create one entry with all content
-    if (entries.length === 0 && text.trim()) {
-      entries.push({
-        title: fileName,
-        content: text,
-        category: fileName,
-        sourceFile: filePath,
-      });
-    }
-    
-    console.log(`Parsed ${entries.length} SOP entries from Word document`);
-    return entries;
-  } catch (error) {
-    console.error(`Error parsing Word document ${filePath}:`, error);
-    throw error;
-  }
+  // Very basic parsing for Word docs as they are unstructured
+  // Treat whole doc as one SOP for now, unless we see clear headers
+  const id = fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  return [{
+    id,
+    title: fileName.replace(/\.docx?$/, ''),
+    category: 'General', // TODO: infer from folder?
+    sourceFile: fileName,
+    steps: [{
+      order: 1,
+      task: text,
+      role: 'Unknown',
+      tools: '',
+      template: ''
+    }],
+    content: text
+  }];
 }
 
-export function previewSOPStructure(filePath: string): void {
-  console.log(`\n=== Previewing SOP Structure ===\n`);
-  
+// Wrapper for compatibility/directory logic
+export async function parseSOPFile(filePath: string): Promise<SOPDocument[]> {
   const ext = path.extname(filePath).toLowerCase();
-  
-  if (ext === '.xlsx' || ext === '.xls') {
-    // Read file as buffer first (works in Next.js API routes)
-    const fileBuffer = fs.readFileSync(filePath);
-    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-    console.log(`Sheets: ${workbook.SheetNames.join(', ')}\n`);
-
-    workbook.SheetNames.forEach((sheetName) => {
-      console.log(`\n--- Sheet: ${sheetName} ---`);
-      const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      // Show first few rows
-      const previewRows = data.slice(0, 5);
-      console.log('Headers/First rows:');
-      previewRows.forEach((row: any, i: number) => {
-        console.log(`Row ${i + 1}:`, row);
-      });
-    });
-  } else if (ext === '.docx' || ext === '.doc') {
-    console.log('Word document detected. Preview not available for .docx files.');
-    console.log('Use parse-sop to see extracted content.');
-  } else {
-    console.log(`Unknown file type: ${ext}`);
-  }
+  if (ext.includes('xls')) return parseSOPExcel(filePath);
+  if (ext.includes('doc')) return await parseSOPWord(filePath);
+  return [];
 }
 
-export async function parseSOPFile(filePath: string): Promise<SOPEntry[]> {
-  const ext = path.extname(filePath).toLowerCase();
-  
-  if (ext === '.xlsx' || ext === '.xls') {
-    return parseSOPExcel(filePath);
-  } else if (ext === '.docx' || ext === '.doc') {
-    return await parseSOPWord(filePath);
-  } else {
-    throw new Error(`Unsupported file type: ${ext}. Supported: .xlsx, .xls, .docx, .doc`);
-  }
-}
+export async function parseSOPDirectory(dirPath: string): Promise<SOPDocument[]> {
+  if (!fs.existsSync(dirPath)) return [];
+  const files = fs.readdirSync(dirPath);
+  const docs: SOPDocument[] = [];
 
-export async function parseSOPDirectory(directoryPath: string): Promise<SOPEntry[]> {
-  console.log(`Scanning directory: ${directoryPath}`);
-  
-  if (!fs.existsSync(directoryPath)) {
-    console.warn(`Directory not found: ${directoryPath}`);
-    return [];
-  }
-
-  const allEntries: SOPEntry[] = [];
-  const files = fs.readdirSync(directoryPath);
-  
-  const supportedExtensions = ['.xlsx', '.xls', '.docx', '.doc'];
-  const sopFiles = files.filter(file => {
-    const ext = path.extname(file).toLowerCase();
-    return supportedExtensions.includes(ext);
-  });
-
-  console.log(`Found ${sopFiles.length} SOP file(s) in directory`);
-
-  for (const file of sopFiles) {
-    const filePath = path.join(directoryPath, file);
-    try {
-      console.log(`\nProcessing: ${file}`);
-      const entries = await parseSOPFile(filePath);
-      allEntries.push(...entries);
-      console.log(`✓ Processed ${entries.length} entries from ${file}`);
-    } catch (error) {
-      console.error(`✗ Error processing ${file}:`, error);
-    }
-  }
-
-  return allEntries;
-}
-
-if (require.main === module) {
-  let inputPath = process.argv[2] || '/Users/Swarup/Documents/SOP_AI_Chatbot/S4_-_SOPs_-_MF_Transactions.xlsx';
-  
-  // Resolve relative paths
-  if (!path.isAbsolute(inputPath)) {
-    inputPath = path.resolve(process.cwd(), inputPath);
-  }
-  
-  (async () => {
-    try {
-      const stats = fs.statSync(inputPath);
-      
-      if (stats.isDirectory()) {
-        // Process directory
-        console.log(`\n=== Processing Directory: ${inputPath} ===\n`);
-        const entries = await parseSOPDirectory(inputPath);
-        console.log(`\n=== Total: ${entries.length} entries parsed ===\n`);
-        
-        // Show sample entries
-        if (entries.length > 0) {
-          console.log('Sample entries:');
-          entries.slice(0, 3).forEach((entry, i) => {
-            console.log(`\nEntry ${i + 1}:`);
-            console.log('Title:', entry.title || 'N/A');
-            console.log('Category:', entry.category);
-            console.log('Source:', entry.sourceFile || 'N/A');
-            console.log('Content preview:', entry.content.substring(0, 200) + '...');
-          });
-        }
-      } else {
-        // Process single file
-        console.log(`\n=== Processing File: ${inputPath} ===\n`);
-        previewSOPStructure(inputPath);
-        
-        const entries = await parseSOPFile(inputPath);
-        console.log(`\n=== Parsed ${entries.length} entries ===\n`);
-        
-        // Show sample entries
-        if (entries.length > 0) {
-          console.log('Sample entries:');
-          entries.slice(0, 3).forEach((entry, i) => {
-            console.log(`\nEntry ${i + 1}:`);
-            console.log('Title:', entry.title || 'N/A');
-            console.log('Category:', entry.category);
-            console.log('Content preview:', entry.content.substring(0, 200) + '...');
-          });
-        }
+  for (const f of files) {
+    if (['.xlsx', '.xls', '.docx'].includes(path.extname(f).toLowerCase())) {
+      try {
+        const results = await parseSOPFile(path.join(dirPath, f));
+        docs.push(...results);
+      } catch (e) {
+        console.error(`Failed to parse ${f}`, e);
       }
-    } catch (error) {
-      console.error('Error parsing SOP file/directory:', error);
-      process.exit(1);
     }
-  })();
+  }
+  return docs;
 }
-

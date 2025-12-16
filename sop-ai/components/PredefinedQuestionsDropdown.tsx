@@ -51,12 +51,12 @@ export default function PredefinedQuestionsDropdown({
 
   useEffect(() => {
     loadQuestions();
-    
+
     // Listen for SOPs update event
     const handleSOPsUpdate = () => {
       loadQuestions();
     };
-    
+
     window.addEventListener('sops-updated', handleSOPsUpdate);
     return () => {
       window.removeEventListener('sops-updated', handleSOPsUpdate);
@@ -89,12 +89,13 @@ export default function PredefinedQuestionsDropdown({
   }, [searchValue]);
 
   const handleSelect = (question: string) => {
+    console.log('[Dropdown] Selected question:', question);
     onSelectQuestion(question);
     setOpen(false);
     setSearchValue('');
   };
 
-  const allQuestions = data?.questions.flatMap((group) => 
+  const allQuestions = data?.questions.flatMap((group) =>
     group.questions.map((q) => ({ ...q, fileName: group.fileName }))
   ) || [];
 

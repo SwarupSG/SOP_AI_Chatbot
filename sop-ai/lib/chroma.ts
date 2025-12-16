@@ -288,7 +288,7 @@ async function getLLMResponseViaCurl(prompt: string): Promise<string> {
   }
 }
 
-export async function querySOPs(question: string): Promise<{ answer: string; confidence: number; sources: string[] }> {
+export async function querySOPs(question: string, filterSopId?: string): Promise<{ answer: string; confidence: number; sources: string[] }> {
   try {
     const client = getChromaClient();
 
@@ -310,10 +310,18 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
     const queryEmbedding = await getEmbedding(question);
 
     // Query ChromaDB for similar documents
-    const results = await collection.query({
+    const queryParams: any = {
       queryEmbeddings: [queryEmbedding],
-      nResults: 5, // Get top 5 most relevant SOPs
-    });
+      nResults: 5,
+    };
+
+    // Apply filter if provided
+    if (filterSopId) {
+      queryParams.where = { sopId: filterSopId };
+      console.log(`[RAG] Scoped query for SOP ID: ${filterSopId}`);
+    }
+
+    const results = await collection.query(queryParams);
 
     if (!results.documents || results.documents[0].length === 0) {
       return {
@@ -328,12 +336,16 @@ export async function querySOPs(question: string): Promise<{ answer: string; con
     const distances = results.distances?.[0] || [];
     const metadatas = results.metadatas?.[0] || [];
 
-    // Calculate confidence based on similarity (lower distance = higher confidence)
-    // Convert distance to confidence (assuming cosine distance, 0 = identical, 1 = orthogonal)
+    // Calculate confidence based on similarity
+    // Using exponential decay to map unbounded distance to 0-1 range
+    // avgDistance 0 -> Confidence 1.0 (Exact match)
+    // avgDistance 0.5 -> Confidence ~0.60
+    // avgDistance 1.0 -> Confidence ~0.37
     const avgDistance = distances.length > 0
       ? distances.filter((d): d is number => d != null).reduce((a, b) => a + b, 0) / distances.length
       : 1;
-    const confidence = Math.max(0, Math.min(1, 1 - avgDistance));
+
+    const confidence = Math.exp(-avgDistance);
 
     // Build context from relevant SOPs
     const context = relevantDocs
@@ -411,13 +423,15 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
 
     // Parse SOP files - both Excel and Word documents
     const { parseSOPFile, parseSOPDirectory } = await import('../scripts/parse-sop');
-    const allEntries: any[] = [];
+    // Note: TypeScript might complain about import type mismatch if not reloaded, but runtime is fine.
+    // The parser now returns SOPDocument[]
+    const allDocs: any[] = [];
 
     // Process Excel file if provided, otherwise use default
     if (sopFilePath) {
       console.log(`Processing file: ${sopFilePath}`);
-      const fileEntries = await parseSOPFile(sopFilePath);
-      allEntries.push(...fileEntries);
+      const fileDocs = await parseSOPFile(sopFilePath);
+      allDocs.push(...fileDocs);
     } else {
       // Process default Excel file
       const defaultExcelPath = findSOPExcelFile();
@@ -425,92 +439,106 @@ export async function rebuildIndex(sopFilePath?: string): Promise<void> {
         throw new Error('SOP Excel file not found. Please place S4_-_SOPs_-_MF_Transactions.xlsx in the data/ directory.');
       }
       console.log(`Processing default Excel file: ${defaultExcelPath}`);
-      const fileEntries = await parseSOPFile(defaultExcelPath);
-      allEntries.push(...fileEntries);
+      const fileDocs = await parseSOPFile(defaultExcelPath);
+      allDocs.push(...fileDocs);
     }
 
     // Process Word documents from template_sample folder
     const templateSamplePath = findTemplateDir();
     if (templateSamplePath) {
       console.log(`Processing Word documents from: ${templateSamplePath}`);
-      const dirEntries = await parseSOPDirectory(templateSamplePath);
-      allEntries.push(...dirEntries);
+      const dirDocs = await parseSOPDirectory(templateSamplePath);
+      allDocs.push(...dirDocs);
     } else {
       console.warn('Template sample folder not found in any location');
     }
 
-    const entries = allEntries;
-    console.log(`Parsed ${entries.length} total SOP entries, generating embeddings...`);
+    console.log(`Parsed ${allDocs.length} total SOP documents.`);
+
+    // --- NEW: Save Structured Data for Knowledge Base UI ---
+    console.log('[INDEX] Saving structured SOP data to sop_data/sop-entries.json...');
+    const dataDir = path.join(process.cwd(), 'sop_data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(dataDir, 'sop-entries.json'), JSON.stringify(allDocs, null, 2));
+    // --------------------------------------------------------
+
+    console.log('Generating embeddings for vector search...');
 
     // Process entries in batches to avoid overwhelming Ollama
     const batchSize = 10;
     const allIds: string[] = [];
     const allEmbeddings: number[][] = [];
-    const allDocuments: string[] = [];
+    const allContentStrings: string[] = [];
     const allMetadatas: any[] = [];
 
-    for (let i = 0; i < entries.length; i += batchSize) {
-      const batch = entries.slice(i, i + batchSize);
+    for (let i = 0; i < allDocs.length; i += batchSize) {
+      const batch = allDocs.slice(i, i + batchSize);
       const batchNum = Math.floor(i / batchSize) + 1;
-      const totalBatches = Math.ceil(entries.length / batchSize);
-      console.log(`[DEBUG] Starting batch ${batchNum}/${totalBatches} (entries ${i + 1}-${Math.min(i + batchSize, entries.length)})`);
+      const totalBatches = Math.ceil(allDocs.length / batchSize);
+      console.log(`[DEBUG] Starting batch ${batchNum}/${totalBatches}`);
 
-      const batchPromises = batch.map(async (entry, idx) => {
+      const batchPromises = batch.map(async (doc, idx) => {
         const globalIdx = i + idx;
         try {
-          console.log(`[DEBUG] Processing entry ${globalIdx + 1}/${entries.length}: ${(entry.title || 'Untitled').substring(0, 50)}`);
-          const embedding = await getEmbedding(entry.content);
+          console.log(`[DEBUG] Processing doc ${globalIdx + 1}: ${doc.title}`);
+          const embedding = await getEmbedding(doc.content);
+          if (!embedding || embedding.length === 0) {
+            throw new Error('Empty embedding returned');
+          }
           console.log(`[DEBUG] Completed entry ${globalIdx + 1}, embedding length: ${embedding.length}`);
 
           return {
-            id: `sop-${globalIdx}`,
+            id: doc.id || `sop-${globalIdx}`, // Use semantic ID if available
             embedding,
-            document: entry.content,
+            document: doc.content,
             metadata: {
-              title: entry.title || `SOP Entry ${globalIdx + 1}`,
-              category: entry.category || 'General',
-              section: entry.section || '',
+              title: doc.title || `SOP Entry ${globalIdx + 1}`,
+              category: doc.category || 'General',
+              sourceFile: doc.sourceFile || 'Unknown',
+              sopId: doc.id // Link back to structured JSON
             },
           };
         } catch (error: any) {
-          console.error(`[ERROR] Failed to process entry ${globalIdx + 1}:`, error.message);
-          throw error;
+          console.error(`[ERROR] Failed to process doc ${globalIdx + 1}:`, error.message);
+          return null; // Return null to filter out later
         }
       });
 
-      console.log(`[DEBUG] Waiting for batch ${batchNum} to complete...`);
+      console.log(`[DEBUG] Waiting for batch ${batchNum}...`);
       const batchResults = await Promise.all(batchPromises);
-      console.log(`[DEBUG] Batch ${batchNum} completed, got ${batchResults.length} results`);
 
       batchResults.forEach((result) => {
-        allIds.push(result.id);
-        allEmbeddings.push(result.embedding);
-        allDocuments.push(result.document);
-        allMetadatas.push(result.metadata);
+        if (result) {
+          allIds.push(result.id);
+          allEmbeddings.push(result.embedding);
+          allContentStrings.push(result.document);
+          allMetadatas.push(result.metadata);
+        }
       });
 
       // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
-      console.log(`[DEBUG] Batch ${batchNum} processed, moving to next batch`);
     }
 
     // Add all documents to ChromaDB
     await collection.add({
       ids: allIds,
       embeddings: allEmbeddings,
-      documents: allDocuments,
+      documents: allContentStrings,
       metadatas: allMetadatas,
     });
 
-    console.log(`Successfully indexed ${entries.length} SOP entries into ChromaDB`);
+    console.log(`Successfully indexed ${allIds.length} SOPs into ChromaDB`);
 
     // Track indexed SOPs in database
     // Group entries by source file and category
     const sopGroups = new Map<string, { category: string; count: number }>();
 
-    entries.forEach((entry) => {
-      const source = entry.sourceFile || 'Unknown';
-      const category = entry.category || 'General';
+    allDocs.forEach((doc) => {
+      const source = doc.sourceFile || 'Unknown';
+      const category = doc.category || 'General';
       const key = `${source}::${category}`;
 
       if (!sopGroups.has(key)) {

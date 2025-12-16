@@ -4,16 +4,28 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ChatBox from '@/components/ChatBox';
 import SOPsSidebar from '@/components/SOPsSidebar';
+import { SOPReader } from '@/components/SOPReader';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Settings, LogOut, Sparkles } from 'lucide-react';
+import { Loader2, User, Settings, LogOut, Sparkles, X } from 'lucide-react';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedSOPId, setSelectedSOPId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     checkAuth();
+
+    // Listen for custom event from Sidebar
+    const handleTrigger = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail.sopId) {
+        setSelectedSOPId(detail.sopId);
+      }
+    };
+    window.addEventListener('trigger-question', handleTrigger);
+    return () => window.removeEventListener('trigger-question', handleTrigger);
   }, []);
 
   const checkAuth = async () => {
@@ -52,17 +64,19 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Enhanced Header */}
-      <div className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <div className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur shadow-sm shrink-0">
+        <div className="w-full px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-semibold">SOP AI Assistant</h1>
+              <h1 className="text-xl font-semibold">SOP Knowledge Base</h1>
             </div>
           </div>
+
           <div className="flex items-center gap-3">
+            {/* User Controls */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
@@ -77,12 +91,12 @@ export default function Home() {
                 className="gap-2"
               >
                 <Settings className="h-4 w-4" />
-                Admin Dashboard
+                Admin
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleLogout}
               className="gap-2"
             >
@@ -92,12 +106,49 @@ export default function Home() {
           </div>
         </div>
       </div>
-      
+
+      {/* Sidebar Overlay */}
       <SOPsSidebar />
-      
-      {/* Main Content */}
-      <div className="py-6">
-        <ChatBox />
+
+      {/* Main Layout */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* Left/Center Pane: Reader */}
+        <div className={`flex-1 overflow-hidden transition-all duration-300 ${selectedSOPId ? 'border-r' : 'flex items-center justify-center'}`}>
+          {selectedSOPId ? (
+            <div className="h-full flex flex-col relative bg-white">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-4 z-10 hover:bg-muted"
+                onClick={() => setSelectedSOPId(null)}
+                title="Close Reader"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <SOPReader sopId={selectedSOPId} />
+            </div>
+          ) : (
+            <div className="text-center p-10 max-w-lg hidden md:block opacity-50">
+              <h2 className="text-2xl font-bold mb-4">Welcome to the Knowledge Base</h2>
+              <p className="text-muted-foreground">Select a topic from the sidebar to read the full SOP, or ask a question on the right.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right Pane: Chat */}
+        {/* If Reader is open, Chat takes 400px fixed. If closed, Chat takes large width centered (default). 
+            Actually, let's keep Chat on the right always, but if Reader is closed, Chat is centered.
+            Wait, if user just wants AI, they want Chat centered.
+            Implementation: If sopId is null -> Chat is centered max-w-4xl.
+            If sopId is set -> Chat is sidebar style (w-[400px]).
+        */}
+        <div className={`${selectedSOPId ? 'w-[400px] border-l bg-gray-50/50' : 'flex-1'} flex flex-col transition-all duration-300`}>
+          <div className={`${selectedSOPId ? 'p-0 h-full' : 'max-w-4xl mx-auto w-full py-6'}`}>
+            <ChatBox activeSopId={selectedSOPId} />
+          </div>
+        </div>
+
       </div>
     </div>
   );

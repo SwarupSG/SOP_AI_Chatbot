@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Send, Copy, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 import PredefinedQuestionsDropdown from './PredefinedQuestionsDropdown';
-import SOPTagCloud from './SOPTagCloud';
+import { DiscoveryDashboard } from './DiscoveryDashboard';
 
 interface Message {
   id: string;
@@ -31,7 +31,11 @@ const DEFAULT_QUESTIONS = [
   "What are the steps for processing a transaction?",
 ];
 
-export default function ChatBox() {
+interface ChatBoxProps {
+  activeSopId?: string | null;
+}
+
+export default function ChatBox({ activeSopId }: ChatBoxProps) {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -43,6 +47,8 @@ export default function ChatBox() {
   const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Track if the current question came from a suggestion/preferred source
+  const isPreferredRef = useRef(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [clearingHistory, setClearingHistory] = useState(false);
 
@@ -57,10 +63,21 @@ export default function ChatBox() {
     const handleSOPsUpdate = () => {
       loadSuggestedQuestions();
     };
-    
+
+    // Listen for sidebar topic selection
+    const handleTriggerQuestion = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.question) {
+        setQuestion(customEvent.detail.question);
+        inputRef.current?.focus();
+      }
+    };
+
     window.addEventListener('sops-updated', handleSOPsUpdate);
+    window.addEventListener('trigger-question', handleTriggerQuestion);
     return () => {
       window.removeEventListener('sops-updated', handleSOPsUpdate);
+      window.removeEventListener('trigger-question', handleTriggerQuestion);
     };
   }, []);
 
@@ -98,7 +115,6 @@ export default function ChatBox() {
       if (res.ok) {
         setRecentQuestions([]);
         setMessages([]);
-        // Show success message
         alert('Chat history cleared successfully.');
       } else {
         const errorData = await res.json();
@@ -173,13 +189,25 @@ export default function ChatBox() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim() || loading) return;
+  // ... (keep useEffects)
 
-    const userQuestion = question.trim();
+  const handleSubmit = async (e?: React.FormEvent, overrideQuestion?: string, isPreferredOverride?: boolean) => {
+    e?.preventDefault();
+
+    // Determine the question to ask
+    const questionToAsk = overrideQuestion || question;
+    console.log('[ChatBox] handleSubmit called. Question:', questionToAsk, 'Override:', overrideQuestion, 'Loading:', loading);
+
+    const isPreferred = isPreferredOverride || isPreferredRef.current;
+
+    // Reset preferred flag for next time
+    isPreferredRef.current = false;
+
+    if (!questionToAsk.trim() || loading) return;
+
+    const userQuestion = questionToAsk.trim();
     setQuestion('');
-    
+
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -190,20 +218,34 @@ export default function ChatBox() {
     setMessages((prev) => [...prev, userMessage]);
 
     setLoading(true);
+    console.log('[ChatBox] Messages state updated. Sending fetch request...');
 
     try {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userQuestion }),
+        body: JSON.stringify({
+          question: userQuestion,
+          sopId: activeSopId,
+          isPreferred: isPreferred
+        }),
       });
 
+      console.log('[ChatBox] Fetch response received. Status:', res.status);
+
       if (!res.ok) {
-        throw new Error('Failed to get answer');
+        throw new Error(`Failed to get answer: ${res.status} ${res.statusText}`);
       }
 
       const data = await res.json();
-      
+      console.log('[ChatBox] API Data received:', data);
+
+      if (!data.answer) {
+        console.warn('[ChatBox] Warning: Answer is empty/undefined');
+        // Fallback if answer is missing but successful
+        data.answer = "I'm sorry, I received an empty response from the server.";
+      }
+
       // Add assistant message
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -229,8 +271,8 @@ export default function ChatBox() {
   };
 
   const handleSuggestedQuestion = (suggestedQ: string) => {
-    setQuestion(suggestedQ);
-    inputRef.current?.focus();
+    // Auto-submit suggested questions with preferred flag
+    handleSubmit(undefined, suggestedQ, true);
   };
 
   const handleRecentQuestion = (recentQ: Question) => {
@@ -239,9 +281,9 @@ export default function ChatBox() {
   };
 
   const handleKeywordClick = (keyword: string) => {
-    // Populate input with a question template using the keyword
-    setQuestion(`Tell me about ${keyword}`);
-    inputRef.current?.focus();
+    // Discovery items are also preferred questions (SOP titles)
+    const q = `Tell me about ${keyword}`;
+    handleSubmit(undefined, q, true);
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -282,11 +324,11 @@ export default function ChatBox() {
             <div className="space-y-2 max-w-2xl">
               <h2 className="text-xl font-semibold">Welcome to SOP Assistant</h2>
               <p className="text-muted-foreground text-sm">
-                I'm here to help you find answers from your company's Standard Operating Procedures. 
+                I'm here to help you find answers from your company's Standard Operating Procedures.
                 Try asking a question or select one of the suggestions below.
               </p>
             </div>
-            
+
             {/* Suggested Questions */}
             <div className="w-full max-w-2xl space-y-3 px-2">
               <div className="flex items-center justify-between gap-2">
@@ -350,8 +392,10 @@ export default function ChatBox() {
               )}
             </div>
 
-            {/* Tag Cloud */}
-            <SOPTagCloud onKeywordClick={handleKeywordClick} />
+            {/* Discovery Dashboard */}
+            <div className="px-2 w-full">
+              <DiscoveryDashboard onSelectTopic={handleKeywordClick} />
+            </div>
 
             {/* Recent Questions */}
             {recentQuestions.length > 0 && (
@@ -402,11 +446,10 @@ export default function ChatBox() {
             className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] md:max-w-[70%] rounded-lg px-4 py-3 ${
-                message.type === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
+              className={`max-w-[80%] md:max-w-[70%] rounded-lg px-4 py-3 ${message.type === 'user'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-foreground'
+                }`}
             >
               {message.type === 'assistant' && (
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -494,8 +537,8 @@ export default function ChatBox() {
               }
             }}
           />
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={loading || !question.trim()}
             size="icon"
             className="shrink-0"
